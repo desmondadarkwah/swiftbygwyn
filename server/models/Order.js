@@ -68,11 +68,11 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 // Auto-generate Order ID before saving
-orderSchema.pre('save', async function () {
-  if (!this.orderID) {
-    const count = await mongoose.model('Order').countDocuments()
-    this.orderID = `SWG${String(count + 1).padStart(3, '0')}`
-  }
-})
+// orderSchema.pre('save', async function () {
+//   if (!this.orderID) {
+//     const count = await mongoose.model('Order').countDocuments()
+//     this.orderID = `SWG${String(count + 1).padStart(3, '0')}`
+//   }
+// })
 
 export default mongoose.model('Order', orderSchema)
