@@ -72,7 +72,7 @@ const orderSchema = new mongoose.Schema({
 //   if (!this.orderID) {
 //     const count = await mongoose.model('Order').countDocuments()
 //     this.orderID = `SWG${String(count + 1).padStart(3, '0')}`
-//   }
+//   }g
 // })
 
 export default mongoose.model('Order', orderSchema)
