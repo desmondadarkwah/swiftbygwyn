@@ -1,0 +1,531 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAdminAuth } from '../context/AdminAuthContext'
+import {
+  getStats, getAllOrders, getAllRiders,
+  createRider, updateRiderStatus, deleteRider,
+  assignRider, updateOrderStatus,
+} from '../utils/api'
+
+const STATUS_COLORS = {
+  received:   { bg:'rgba(99,102,241,0.15)',   color:'#a5b4fc', border:'rgba(99,102,241,0.3)' },
+  assigned:   { bg:'rgba(249,115,22,0.15)',   color:'#fdba74', border:'rgba(249,115,22,0.3)' },
+  'picked-up':{ bg:'rgba(234,179,8,0.15)',    color:'#fde047', border:'rgba(234,179,8,0.3)' },
+  'in-transit':{ bg:'rgba(59,130,246,0.15)',  color:'#93c5fd', border:'rgba(59,130,246,0.3)' },
+  delivered:  { bg:'rgba(34,197,94,0.15)',    color:'#86efac', border:'rgba(34,197,94,0.3)' },
+  cancelled:  { bg:'rgba(239,68,68,0.15)',    color:'#fca5a5', border:'rgba(239,68,68,0.3)' },
+}
+
+const STATUS_LABELS = {
+  received: 'Order Received', assigned: 'Rider Assigned',
+  'picked-up': 'Picked Up', 'in-transit': 'In Transit',
+  delivered: 'Delivered', cancelled: 'Cancelled',
+}
+
+const DELIVERY_TYPE_LABELS = {
+  standard: 'Standard', 'same-day': 'Same-Day',
+  express: 'Express', scheduled: 'Scheduled',
+}
+
+function StatusBadge({ status }) {
+  const c = STATUS_COLORS[status] || STATUS_COLORS.received
+  return (
+    <span style={{ padding:'4px 12px', borderRadius:100, fontSize:11, fontWeight:600, background:c.bg, color:c.color, border:`1px solid ${c.border}`, whiteSpace:'nowrap' }}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  )
+}
+
+export default function AdminDashboard() {
+  const { logout } = useAdminAuth()
+  const navigate   = useNavigate()
+  const [activeTab, setActiveTab] = useState('overview')
+  const [stats, setStats]         = useState(null)
+  const [orders, setOrders]       = useState([])
+  const [riders, setRiders]       = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [statusFilter, setStatusFilter]   = useState('')
+  const [riderModal, setRiderModal]       = useState(false)
+  const [riderForm, setRiderForm]         = useState({ name:'', email:'', password:'', phone:'' })
+  const [riderLoading, setRiderLoading]   = useState(false)
+  const [riderError, setRiderError]       = useState('')
+
+  useEffect(() => { loadAll() }, [])
+
+  const loadAll = async () => {
+    setLoading(true)
+    try {
+      const [s, o, r] = await Promise.all([getStats(), getAllOrders(), getAllRiders()])
+      setStats(s); setOrders(o); setRiders(r)
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  const loadOrders = async (status) => {
+    try {
+      const o = await getAllOrders(status)
+      setOrders(o)
+    } catch(e) { console.error(e) }
+  }
+
+  const handleStatusFilter = (status) => {
+    setStatusFilter(status)
+    loadOrders(status)
+  }
+
+  const handleAssignRider = async (orderId, riderId) => {
+    try { await assignRider(orderId, riderId); loadAll() }
+    catch(e) { alert(e.response?.data?.error || 'Failed to assign rider') }
+  }
+
+  const handleUpdateStatus = async (orderId, status) => {
+    try { await updateOrderStatus(orderId, status); loadAll(); setSelectedOrder(null) }
+    catch(e) { alert(e.response?.data?.error || 'Failed to update status') }
+  }
+
+  const handleCreateRider = async (e) => {
+    e.preventDefault()
+    setRiderLoading(true); setRiderError('')
+    try {
+      await createRider(riderForm)
+      setRiderModal(false)
+      setRiderForm({ name:'', email:'', password:'', phone:'' })
+      loadAll()
+    } catch(e) { setRiderError(e.response?.data?.error || 'Failed to create rider') }
+    finally { setRiderLoading(false) }
+  }
+
+  const handleLogout = () => { logout(); navigate('/admin/login') }
+
+  const filteredOrders = orders
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        .adm-root { min-height: 100vh; background: #0b0f1a; font-family: 'Inter', sans-serif; color: #f0f4ff; display: flex; }
+
+        /* SIDEBAR */
+        .adm-sidebar { width: 220px; flex-shrink: 0; background: rgba(255,255,255,0.03); border-right: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+        .adm-sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 0 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; text-decoration: none; }
+        .adm-sidebar-logo-icon { width: 34px; height: 34px; background: #f97316; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .adm-sidebar-logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #fff; }
+        .adm-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13px; font-weight: 500; color: rgba(240,244,255,0.45); cursor: pointer; transition: all 0.2s; border-left: 2px solid transparent; }
+        .adm-nav-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
+        .adm-nav-item.active { color: #f97316; background: rgba(249,115,22,0.08); border-left-color: #f97316; }
+        .adm-nav-icon { font-size: 16px; }
+        .adm-sidebar-bottom { margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.06); }
+        .adm-logout-btn { width: 100%; padding: 10px; background: transparent; color: rgba(240,244,255,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .adm-logout-btn:hover { border-color: #f97316; color: #f97316; }
+
+        /* MAIN */
+        .adm-main { flex: 1; padding: 32px; overflow-x: hidden; }
+        .adm-page-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; color: #fff; margin-bottom: 24px; }
+
+        /* STATS */
+        .adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 28px; }
+        .adm-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
+        .adm-stat-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 32px; color: #fff; margin-bottom: 4px; }
+        .adm-stat-label { font-size: 12px; color: rgba(240,244,255,0.35); }
+        .adm-stat-icon { position: absolute; top: 16px; right: 16px; font-size: 22px; opacity: 0.2; }
+
+        /* FILTERS */
+        .adm-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .adm-filter-btn { padding: 7px 16px; border-radius: 100px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(240,244,255,0.4); }
+        .adm-filter-btn:hover { border-color: rgba(249,115,22,0.4); color: #f97316; }
+        .adm-filter-btn.active { background: #f97316; color: #fff; border-color: #f97316; }
+
+        /* TABLE */
+        .adm-table-wrap { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; overflow: hidden; }
+        .adm-table { width: 100%; border-collapse: collapse; }
+        .adm-table th { padding: 14px 16px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(240,244,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
+        .adm-table td { padding: 14px 16px; font-size: 13px; color: rgba(240,244,255,0.7); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .adm-table tr:last-child td { border-bottom: none; }
+        .adm-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .adm-table-name { font-weight: 600; color: #fff; margin-bottom: 2px; }
+        .adm-table-sub { font-size: 11px; color: rgba(240,244,255,0.35); }
+        .adm-btn-sm { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; }
+        .adm-btn-orange { background: rgba(249,115,22,0.15); color: #f97316; border: 1px solid rgba(249,115,22,0.3); }
+        .adm-btn-orange:hover { background: #f97316; color: #fff; }
+        .adm-btn-red { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+        .adm-btn-red:hover { background: #ef4444; color: #fff; }
+        .adm-btn-green { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .adm-btn-green:hover { background: #22c55e; color: #fff; }
+
+        /* ORDER MODAL */
+        .adm-modal-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .adm-modal { background: #0f1525; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; width: 100%; max-width: 600px; max-height: 85vh; overflow-y: auto; }
+        .adm-modal-head { padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #0f1525; }
+        .adm-modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #fff; }
+        .adm-modal-close { background: rgba(255,255,255,0.06); border: none; color: rgba(240,244,255,0.5); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .adm-modal-body { padding: 24px; }
+        .adm-modal-section { margin-bottom: 20px; }
+        .adm-modal-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(240,244,255,0.3); margin-bottom: 12px; }
+        .adm-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .adm-modal-item { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px; }
+        .adm-modal-item-label { font-size: 11px; color: rgba(240,244,255,0.3); margin-bottom: 4px; }
+        .adm-modal-item-value { font-size: 13px; color: #f0f4ff; font-weight: 500; }
+        .adm-assign-select { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #fff; outline: none; margin-bottom: 10px; }
+        .adm-status-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .adm-proof-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-top: 8px; }
+
+        /* RIDER FORM MODAL */
+        .adm-form-field { margin-bottom: 14px; }
+        .adm-form-label { display: block; font-size: 12px; font-weight: 500; color: rgba(240,244,255,0.4); margin-bottom: 6px; }
+        .adm-form-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #fff; outline: none; font-family: 'Inter', sans-serif; }
+        .adm-form-input:focus { border-color: #f97316; }
+        .adm-form-error { font-size: 12px; color: #fca5a5; margin-bottom: 12px; padding: 10px; background: rgba(239,68,68,0.1); border-radius: 8px; }
+        .adm-form-btn { width: 100%; padding: 13px; background: #f97316; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .adm-form-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .adm-empty { padding: 48px; text-align: center; color: rgba(240,244,255,0.25); font-size: 14px; }
+        .adm-add-btn { padding: 10px 20px; background: #f97316; color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 20px; }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+          .adm-root { flex-direction: column; }
+          .adm-sidebar { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; padding: 12px; gap: 4px; }
+          .adm-sidebar-logo { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+          .adm-sidebar-bottom { margin-top: 0; padding: 0; border-top: none; }
+          .adm-main { padding: 16px; }
+          .adm-modal-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      <div className="adm-root">
+        {/* SIDEBAR */}
+        <aside className="adm-sidebar">
+          <a href="/" className="adm-sidebar-logo">
+            <div className="adm-sidebar-logo-icon">🚀</div>
+            <div className="adm-sidebar-logo-text">SwiftByGwyn</div>
+          </a>
+          {[
+            { id:'overview', icon:'📊', label:'Overview' },
+            { id:'orders',   icon:'📦', label:'Orders' },
+            { id:'riders',   icon:'🏍️', label:'Riders' },
+            { id:'reports',  icon:'📈', label:'Reports' },
+          ].map(tab => (
+            <div key={tab.id} className={`adm-nav-item${activeTab === tab.id ? ' active' : ''}`} onClick={() => setActiveTab(tab.id)}>
+              <span className="adm-nav-icon">{tab.icon}</span>
+              {tab.label}
+            </div>
+          ))}
+          <div className="adm-sidebar-bottom">
+            <button className="adm-logout-btn" onClick={handleLogout}>Sign Out</button>
+          </div>
+        </aside>
+
+        {/* MAIN */}
+        <main className="adm-main">
+
+          {/* OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div>
+              <div className="adm-page-title">Overview</div>
+              {loading ? <div className="adm-empty">Loading...</div> : (
+                <>
+                  <div className="adm-stats">
+                    {[
+                      { label:'Total Orders',   value: stats?.total || 0,     icon:'📦', color:'#f97316' },
+                      { label:'Pending',        value: stats?.pending || 0,   icon:'⏳', color:'#f59e0b' },
+                      { label:'Completed',      value: stats?.completed || 0, icon:'✅', color:'#22c55e' },
+                      { label:'Cancelled',      value: stats?.cancelled || 0, icon:'❌', color:'#ef4444' },
+                      { label:'Total Revenue',  value: `GHS ${stats?.revenue || 0}`, icon:'💰', color:'#a78bfa' },
+                      { label:'Active Riders',  value: riders.filter(r => r.status === 'active').length, icon:'🏍️', color:'#38bdf8' },
+                    ].map(s => (
+                      <div key={s.label} className="adm-stat" style={{ borderTop:`2px solid ${s.color}` }}>
+                        <div className="adm-stat-icon">{s.icon}</div>
+                        <div className="adm-stat-num" style={{ color: s.color }}>{s.value}</div>
+                        <div className="adm-stat-label">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Recent Orders */}
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:'#fff', marginBottom:16 }}>Recent Orders</div>
+                  <div className="adm-table-wrap">
+                    <table className="adm-table">
+                      <thead>
+                        <tr>
+                          <th>Order ID</th><th>Customer</th><th>Route</th><th>Type</th><th>Status</th><th>Fee</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orders.slice(0,8).map(o => (
+                          <tr key={o._id} style={{ cursor:'pointer' }} onClick={() => setSelectedOrder(o)}>
+                            <td><span style={{ color:'#f97316', fontWeight:700 }}>{o.orderID}</span></td>
+                            <td><div className="adm-table-name">{o.customerName}</div><div className="adm-table-sub">{o.customerPhone}</div></td>
+                            <td><div className="adm-table-name" style={{ fontSize:12 }}>{o.pickupLocation}</div><div className="adm-table-sub">→ {o.dropoffLocation}</div></td>
+                            <td><span style={{ fontSize:11, color:'rgba(240,244,255,0.5)' }}>{DELIVERY_TYPE_LABELS[o.deliveryType]}</span></td>
+                            <td><StatusBadge status={o.status} /></td>
+                            <td style={{ color:'#f97316', fontWeight:600 }}>GHS {o.deliveryFee}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {orders.length === 0 && <div className="adm-empty">No orders yet.</div>}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ORDERS */}
+          {activeTab === 'orders' && (
+            <div>
+              <div className="adm-page-title">All Orders</div>
+              <div className="adm-filters">
+                {[
+                  { value:'', label:'All' },
+                  { value:'received', label:'Received' },
+                  { value:'assigned', label:'Assigned' },
+                  { value:'picked-up', label:'Picked Up' },
+                  { value:'in-transit', label:'In Transit' },
+                  { value:'delivered', label:'Delivered' },
+                  { value:'cancelled', label:'Cancelled' },
+                ].map(f => (
+                  <button key={f.value} className={`adm-filter-btn${statusFilter === f.value ? ' active' : ''}`} onClick={() => handleStatusFilter(f.value)}>{f.label}</button>
+                ))}
+              </div>
+              <div className="adm-table-wrap">
+                <table className="adm-table">
+                  <thead>
+                    <tr><th>Order ID</th><th>Customer</th><th>Recipient</th><th>Route</th><th>Type</th><th>Rider</th><th>Status</th><th>Fee</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map(o => (
+                      <tr key={o._id}>
+                        <td><span style={{ color:'#f97316', fontWeight:700 }}>{o.orderID}</span></td>
+                        <td><div className="adm-table-name">{o.customerName}</div><div className="adm-table-sub">{o.customerPhone}</div></td>
+                        <td><div className="adm-table-name">{o.recipientName}</div><div className="adm-table-sub">{o.recipientPhone}</div></td>
+                        <td><div style={{ fontSize:12 }}>{o.pickupLocation}</div><div className="adm-table-sub">→ {o.dropoffLocation}</div></td>
+                        <td><span style={{ fontSize:11, color:'rgba(240,244,255,0.5)' }}>{DELIVERY_TYPE_LABELS[o.deliveryType]}</span></td>
+                        <td><span style={{ fontSize:12, color: o.assignedRider ? '#86efac' : 'rgba(240,244,255,0.25)' }}>{o.assignedRider?.name || 'Unassigned'}</span></td>
+                        <td><StatusBadge status={o.status} /></td>
+                        <td style={{ color:'#f97316', fontWeight:600 }}>GHS {o.deliveryFee}</td>
+                        <td><button className="adm-btn-sm adm-btn-orange" onClick={() => setSelectedOrder(o)}>Manage</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredOrders.length === 0 && <div className="adm-empty">No orders found.</div>}
+              </div>
+            </div>
+          )}
+
+          {/* RIDERS */}
+          {activeTab === 'riders' && (
+            <div>
+              <div className="adm-page-title">Riders</div>
+              <button className="adm-add-btn" onClick={() => setRiderModal(true)}>+ Add New Rider</button>
+              <div className="adm-table-wrap">
+                <table className="adm-table">
+                  <thead>
+                    <tr><th>Name</th><th>Email</th><th>Phone</th><th>Deliveries</th><th>Status</th><th>Actions</th></tr>
+                  </thead>
+                  <tbody>
+                    {riders.map(r => (
+                      <tr key={r._id}>
+                        <td><div className="adm-table-name">{r.name}</div></td>
+                        <td><span style={{ fontSize:12 }}>{r.email}</span></td>
+                        <td><span style={{ fontSize:12 }}>{r.phone}</span></td>
+                        <td><span style={{ color:'#f97316', fontWeight:600 }}>{r.totalDeliveries}</span></td>
+                        <td>
+                          <span style={{ padding:'4px 10px', borderRadius:100, fontSize:11, fontWeight:600, background: r.status === 'active' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: r.status === 'active' ? '#86efac' : '#fca5a5', border:`1px solid ${r.status === 'active' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+                            {r.status === 'active' ? 'Active' : 'Suspended'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display:'flex', gap:6 }}>
+                            <button className={`adm-btn-sm ${r.status === 'active' ? 'adm-btn-red' : 'adm-btn-green'}`} onClick={() => updateRiderStatus(r._id, r.status === 'active' ? 'suspended' : 'active').then(loadAll)}>
+                              {r.status === 'active' ? 'Suspend' : 'Activate'}
+                            </button>
+                            <button className="adm-btn-sm adm-btn-red" onClick={() => { if(confirm('Delete this rider?')) deleteRider(r._id).then(loadAll) }}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {riders.length === 0 && <div className="adm-empty">No riders yet. Add your first rider above.</div>}
+              </div>
+            </div>
+          )}
+
+          {/* REPORTS */}
+          {activeTab === 'reports' && (
+            <div>
+              <div className="adm-page-title">Reports</div>
+              {stats && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:16 }}>
+                  {[
+                    { label:'Total Orders', value: stats.total, icon:'📦', desc:'All time bookings' },
+                    { label:'Completed Deliveries', value: stats.completed, icon:'✅', desc:'Successfully delivered' },
+                    { label:'Pending Deliveries', value: stats.pending, icon:'⏳', desc:'In progress' },
+                    { label:'Cancelled Orders', value: stats.cancelled, icon:'❌', desc:'Cancelled by customer or admin' },
+                    { label:'Total Revenue', value: `GHS ${stats.revenue}`, icon:'💰', desc:'From completed deliveries' },
+                    { label:'Completion Rate', value: stats.total ? `${Math.round((stats.completed/stats.total)*100)}%` : '0%', icon:'📈', desc:'Orders completed successfully' },
+                  ].map(s => (
+                    <div key={s.label} className="adm-stat" style={{ borderTop:'2px solid #f97316' }}>
+                      <div className="adm-stat-icon">{s.icon}</div>
+                      <div className="adm-stat-num" style={{ color:'#f97316', fontSize:28 }}>{s.value}</div>
+                      <div className="adm-stat-label">{s.label}</div>
+                      <div style={{ fontSize:11, color:'rgba(240,244,255,0.2)', marginTop:4 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop:32 }}>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:'#fff', marginBottom:16 }}>Rider Performance</div>
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <thead>
+                      <tr><th>Rider</th><th>Phone</th><th>Total Deliveries</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {riders.sort((a,b) => b.totalDeliveries - a.totalDeliveries).map(r => (
+                        <tr key={r._id}>
+                          <td><div className="adm-table-name">{r.name}</div><div className="adm-table-sub">{r.email}</div></td>
+                          <td>{r.phone}</td>
+                          <td><span style={{ color:'#f97316', fontWeight:700, fontSize:16 }}>{r.totalDeliveries}</span></td>
+                          <td><span style={{ fontSize:11, color: r.status === 'active' ? '#86efac' : '#fca5a5' }}>{r.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {riders.length === 0 && <div className="adm-empty">No riders yet.</div>}
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ORDER DETAIL MODAL */}
+      {selectedOrder && (
+        <div className="adm-modal-backdrop" onClick={e => e.target === e.currentTarget && setSelectedOrder(null)}>
+          <div className="adm-modal">
+            <div className="adm-modal-head">
+              <div>
+                <div style={{ fontSize:11, color:'rgba(240,244,255,0.35)', marginBottom:4 }}>Order Details</div>
+                <div className="adm-modal-title" style={{ color:'#f97316' }}>{selectedOrder.orderID}</div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <StatusBadge status={selectedOrder.status} />
+                <button className="adm-modal-close" onClick={() => setSelectedOrder(null)}>✕</button>
+              </div>
+            </div>
+            <div className="adm-modal-body">
+
+              {/* Customer & Recipient */}
+              <div className="adm-modal-section">
+                <div className="adm-modal-section-title">Customer & Recipient</div>
+                <div className="adm-modal-grid">
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Customer</div><div className="adm-modal-item-value">{selectedOrder.customerName}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Customer Phone</div><div className="adm-modal-item-value">{selectedOrder.customerPhone}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Recipient</div><div className="adm-modal-item-value">{selectedOrder.recipientName}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Recipient Phone</div><div className="adm-modal-item-value">{selectedOrder.recipientPhone}</div></div>
+                </div>
+              </div>
+
+              {/* Delivery Info */}
+              <div className="adm-modal-section">
+                <div className="adm-modal-section-title">Delivery Info</div>
+                <div className="adm-modal-grid">
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Pickup</div><div className="adm-modal-item-value">{selectedOrder.pickupLocation}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Drop-off</div><div className="adm-modal-item-value">{selectedOrder.dropoffLocation}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Type</div><div className="adm-modal-item-value">{DELIVERY_TYPE_LABELS[selectedOrder.deliveryType]}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Fee</div><div className="adm-modal-item-value" style={{ color:'#f97316' }}>GHS {selectedOrder.deliveryFee}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Payment</div><div className="adm-modal-item-value">{selectedOrder.paymentMethod}</div></div>
+                  {selectedOrder.deliveryType === 'scheduled' && (
+                    <div className="adm-modal-item"><div className="adm-modal-item-label">Scheduled</div><div className="adm-modal-item-value">{selectedOrder.scheduledDate} at {selectedOrder.scheduledTime}</div></div>
+                  )}
+                </div>
+                {selectedOrder.packageDescription && (
+                  <div className="adm-modal-item" style={{ marginTop:10 }}><div className="adm-modal-item-label">Package</div><div className="adm-modal-item-value">{selectedOrder.packageDescription}</div></div>
+                )}
+                {selectedOrder.additionalNotes && (
+                  <div className="adm-modal-item" style={{ marginTop:10 }}><div className="adm-modal-item-label">Notes</div><div className="adm-modal-item-value">{selectedOrder.additionalNotes}</div></div>
+                )}
+                {selectedOrder.packageImage && (
+                  <div style={{ marginTop:10 }}>
+                    <div className="adm-modal-item-label" style={{ marginBottom:6 }}>Package Photo</div>
+                    <img src={selectedOrder.packageImage} alt="Package" className="adm-proof-img" />
+                  </div>
+                )}
+              </div>
+
+              {/* Assign Rider */}
+              {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && (
+                <div className="adm-modal-section">
+                  <div className="adm-modal-section-title">Assign Rider</div>
+                  <select className="adm-assign-select" defaultValue={selectedOrder.assignedRider?._id || ''} onChange={e => e.target.value && handleAssignRider(selectedOrder._id, e.target.value)}>
+                    <option value="">Select a rider...</option>
+                    {riders.filter(r => r.status === 'active').map(r => (
+                      <option key={r._id} value={r._id}>{r.name} — {r.phone}</option>
+                    ))}
+                  </select>
+                  {selectedOrder.assignedRider && (
+                    <div style={{ fontSize:13, color:'#86efac' }}>✓ Currently assigned to <strong>{selectedOrder.assignedRider.name}</strong></div>
+                  )}
+                </div>
+              )}
+
+              {/* Update Status */}
+              {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && (
+                <div className="adm-modal-section">
+                  <div className="adm-modal-section-title">Update Status</div>
+                  <div className="adm-status-btns">
+                    {['received','assigned','picked-up','in-transit','delivered','cancelled'].map(s => (
+                      <button key={s} className={`adm-btn-sm ${selectedOrder.status === s ? 'adm-btn-orange' : 'adm-btn-sm'}`}
+                        style={selectedOrder.status !== s ? { background:'rgba(255,255,255,0.05)', color:'rgba(240,244,255,0.5)', border:'1px solid rgba(255,255,255,0.08)' } : {}}
+                        onClick={() => handleUpdateStatus(selectedOrder._id, s)}>
+                        {STATUS_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Proof of Delivery */}
+              {selectedOrder.status === 'delivered' && (selectedOrder.proofPhoto || selectedOrder.proofRecipientName) && (
+                <div className="adm-modal-section">
+                  <div className="adm-modal-section-title">Proof of Delivery</div>
+                  <div style={{ background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:12, padding:16 }}>
+                    {selectedOrder.proofRecipientName && <div style={{ fontSize:13, color:'#86efac', marginBottom: selectedOrder.proofPhoto ? 10 : 0 }}>Received by: <strong>{selectedOrder.proofRecipientName}</strong></div>}
+                    {selectedOrder.proofPhoto && <img src={selectedOrder.proofPhoto} alt="Proof" className="adm-proof-img" />}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD RIDER MODAL */}
+      {riderModal && (
+        <div className="adm-modal-backdrop" onClick={e => e.target === e.currentTarget && setRiderModal(false)}>
+          <div className="adm-modal" style={{ maxWidth:440 }}>
+            <div className="adm-modal-head">
+              <div className="adm-modal-title">Add New Rider</div>
+              <button className="adm-modal-close" onClick={() => setRiderModal(false)}>✕</button>
+            </div>
+            <div className="adm-modal-body">
+              <form onSubmit={handleCreateRider}>
+                <div className="adm-form-field"><label className="adm-form-label">Full Name</label><input className="adm-form-input" value={riderForm.name} onChange={e => setRiderForm({...riderForm, name:e.target.value})} required placeholder="Kofi Mensah" /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Email</label><input className="adm-form-input" type="email" value={riderForm.email} onChange={e => setRiderForm({...riderForm, email:e.target.value})} required placeholder="kofi@email.com" /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Phone</label><input className="adm-form-input" value={riderForm.phone} onChange={e => setRiderForm({...riderForm, phone:e.target.value})} required placeholder="0244000000" /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Password</label><input className="adm-form-input" type="password" value={riderForm.password} onChange={e => setRiderForm({...riderForm, password:e.target.value})} required placeholder="Minimum 6 characters" minLength={6} /></div>
+                {riderError && <div className="adm-form-error">✕ {riderError}</div>}
+                <button className="adm-form-btn" type="submit" disabled={riderLoading}>{riderLoading ? 'Adding...' : 'Add Rider'}</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
