@@ -8,18 +8,19 @@ import {
 } from '../utils/api'
 
 const STATUS_COLORS = {
-  received:   { bg:'rgba(99,102,241,0.15)',   color:'#a5b4fc', border:'rgba(99,102,241,0.3)' },
-  assigned:   { bg:'rgba(249,115,22,0.15)',   color:'#fdba74', border:'rgba(249,115,22,0.3)' },
-  'picked-up':{ bg:'rgba(234,179,8,0.15)',    color:'#fde047', border:'rgba(234,179,8,0.3)' },
-  'in-transit':{ bg:'rgba(59,130,246,0.15)',  color:'#93c5fd', border:'rgba(59,130,246,0.3)' },
-  delivered:  { bg:'rgba(34,197,94,0.15)',    color:'#86efac', border:'rgba(34,197,94,0.3)' },
-  cancelled:  { bg:'rgba(239,68,68,0.15)',    color:'#fca5a5', border:'rgba(239,68,68,0.3)' },
+  received: { bg: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: 'rgba(99,102,241,0.3)' },
+  assigned: { bg: 'rgba(249,115,22,0.15)', color: '#fdba74', border: 'rgba(249,115,22,0.3)' },
+  accepted: { bg: 'rgba(168,85,247,0.15)', color: '#d8b4fe', border: 'rgba(168,85,247,0.3)' },
+  'picked-up': { bg: 'rgba(234,179,8,0.15)', color: '#fde047', border: 'rgba(234,179,8,0.3)' },
+  'in-transit': { bg: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: 'rgba(59,130,246,0.3)' },
+  delivered: { bg: 'rgba(34,197,94,0.15)', color: '#86efac', border: 'rgba(34,197,94,0.3)' },
+  cancelled: { bg: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: 'rgba(239,68,68,0.3)' },
 }
 
 const STATUS_LABELS = {
   received: 'Order Received', assigned: 'Rider Assigned',
-  'picked-up': 'Picked Up', 'in-transit': 'In Transit',
-  delivered: 'Delivered', cancelled: 'Cancelled',
+  accepted: 'Accepted', 'picked-up': 'Picked Up',
+  'in-transit': 'In Transit', delivered: 'Delivered', cancelled: 'Cancelled',
 }
 
 const DELIVERY_TYPE_LABELS = {
@@ -30,7 +31,7 @@ const DELIVERY_TYPE_LABELS = {
 function StatusBadge({ status }) {
   const c = STATUS_COLORS[status] || STATUS_COLORS.received
   return (
-    <span style={{ padding:'4px 12px', borderRadius:100, fontSize:11, fontWeight:600, background:c.bg, color:c.color, border:`1px solid ${c.border}`, whiteSpace:'nowrap' }}>
+    <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
       {STATUS_LABELS[status] || status}
     </span>
   )
@@ -38,27 +39,32 @@ function StatusBadge({ status }) {
 
 export default function AdminDashboard() {
   const { logout } = useAdminAuth()
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
-  const [stats, setStats]         = useState(null)
-  const [orders, setOrders]       = useState([])
-  const [riders, setRiders]       = useState([])
-  const [loading, setLoading]     = useState(true)
+  const [stats, setStats] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [riders, setRiders] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [statusFilter, setStatusFilter]   = useState('')
-  const [riderModal, setRiderModal]       = useState(false)
-  const [riderForm, setRiderForm]         = useState({ name:'', email:'', password:'', phone:'' })
-  const [riderLoading, setRiderLoading]   = useState(false)
-  const [riderError, setRiderError]       = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [riderModal, setRiderModal] = useState(false)
+  const [riderForm, setRiderForm] = useState({ name: '', email: '', password: '', phone: '' })
+  const [riderLoading, setRiderLoading] = useState(false)
+  const [riderError, setRiderError] = useState('')
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    loadAll()
+    // Auto refresh every 30 seconds
+    const interval = setInterval(() => { loadAll() }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadAll = async () => {
     setLoading(true)
     try {
       const [s, o, r] = await Promise.all([getStats(), getAllOrders(), getAllRiders()])
       setStats(s); setOrders(o); setRiders(r)
-    } catch(e) { console.error(e) }
+    } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
@@ -66,7 +72,7 @@ export default function AdminDashboard() {
     try {
       const o = await getAllOrders(status)
       setOrders(o)
-    } catch(e) { console.error(e) }
+    } catch (e) { console.error(e) }
   }
 
   const handleStatusFilter = (status) => {
@@ -76,12 +82,12 @@ export default function AdminDashboard() {
 
   const handleAssignRider = async (orderId, riderId) => {
     try { await assignRider(orderId, riderId); loadAll() }
-    catch(e) { alert(e.response?.data?.error || 'Failed to assign rider') }
+    catch (e) { alert(e.response?.data?.error || 'Failed to assign rider') }
   }
 
   const handleUpdateStatus = async (orderId, status) => {
     try { await updateOrderStatus(orderId, status); loadAll(); setSelectedOrder(null) }
-    catch(e) { alert(e.response?.data?.error || 'Failed to update status') }
+    catch (e) { alert(e.response?.data?.error || 'Failed to update status') }
   }
 
   const handleCreateRider = async (e) => {
@@ -90,9 +96,9 @@ export default function AdminDashboard() {
     try {
       await createRider(riderForm)
       setRiderModal(false)
-      setRiderForm({ name:'', email:'', password:'', phone:'' })
+      setRiderForm({ name: '', email: '', password: '', phone: '' })
       loadAll()
-    } catch(e) { setRiderError(e.response?.data?.error || 'Failed to create rider') }
+    } catch (e) { setRiderError(e.response?.data?.error || 'Failed to create rider') }
     finally { setRiderLoading(false) }
   }
 
@@ -202,10 +208,10 @@ export default function AdminDashboard() {
             <div className="adm-sidebar-logo-text">SwiftByGwyn</div>
           </a>
           {[
-            { id:'overview', icon:'📊', label:'Overview' },
-            { id:'orders',   icon:'📦', label:'Orders' },
-            { id:'riders',   icon:'🏍️', label:'Riders' },
-            { id:'reports',  icon:'📈', label:'Reports' },
+            { id: 'overview', icon: '📊', label: 'Overview' },
+            { id: 'orders', icon: '📦', label: 'Orders' },
+            { id: 'riders', icon: '🏍️', label: 'Riders' },
+            { id: 'reports', icon: '📈', label: 'Reports' },
           ].map(tab => (
             <div key={tab.id} className={`adm-nav-item${activeTab === tab.id ? ' active' : ''}`} onClick={() => setActiveTab(tab.id)}>
               <span className="adm-nav-icon">{tab.icon}</span>
@@ -228,14 +234,14 @@ export default function AdminDashboard() {
                 <>
                   <div className="adm-stats">
                     {[
-                      { label:'Total Orders',   value: stats?.total || 0,     icon:'📦', color:'#f97316' },
-                      { label:'Pending',        value: stats?.pending || 0,   icon:'⏳', color:'#f59e0b' },
-                      { label:'Completed',      value: stats?.completed || 0, icon:'✅', color:'#22c55e' },
-                      { label:'Cancelled',      value: stats?.cancelled || 0, icon:'❌', color:'#ef4444' },
-                      { label:'Total Revenue',  value: `GHS ${stats?.revenue || 0}`, icon:'💰', color:'#a78bfa' },
-                      { label:'Active Riders',  value: riders.filter(r => r.status === 'active').length, icon:'🏍️', color:'#38bdf8' },
+                      { label: 'Total Orders', value: stats?.total || 0, icon: '📦', color: '#f97316' },
+                      { label: 'Pending', value: stats?.pending || 0, icon: '⏳', color: '#f59e0b' },
+                      { label: 'Completed', value: stats?.completed || 0, icon: '✅', color: '#22c55e' },
+                      { label: 'Cancelled', value: stats?.cancelled || 0, icon: '❌', color: '#ef4444' },
+                      { label: 'Total Revenue', value: `GHS ${stats?.revenue || 0}`, icon: '💰', color: '#a78bfa' },
+                      { label: 'Active Riders', value: riders.filter(r => r.status === 'active').length, icon: '🏍️', color: '#38bdf8' },
                     ].map(s => (
-                      <div key={s.label} className="adm-stat" style={{ borderTop:`2px solid ${s.color}` }}>
+                      <div key={s.label} className="adm-stat" style={{ borderTop: `2px solid ${s.color}` }}>
                         <div className="adm-stat-icon">{s.icon}</div>
                         <div className="adm-stat-num" style={{ color: s.color }}>{s.value}</div>
                         <div className="adm-stat-label">{s.label}</div>
@@ -244,7 +250,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* Recent Orders */}
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:'#fff', marginBottom:16 }}>Recent Orders</div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: '#fff', marginBottom: 16 }}>Recent Orders</div>
                   <div className="adm-table-wrap">
                     <table className="adm-table">
                       <thead>
@@ -253,14 +259,14 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {orders.slice(0,8).map(o => (
-                          <tr key={o._id} style={{ cursor:'pointer' }} onClick={() => setSelectedOrder(o)}>
-                            <td><span style={{ color:'#f97316', fontWeight:700 }}>{o.orderID}</span></td>
+                        {orders.slice(0, 8).map(o => (
+                          <tr key={o._id} style={{ cursor: 'pointer' }} onClick={() => setSelectedOrder(o)}>
+                            <td><span style={{ color: '#f97316', fontWeight: 700 }}>{o.orderID}</span></td>
                             <td><div className="adm-table-name">{o.customerName}</div><div className="adm-table-sub">{o.customerPhone}</div></td>
-                            <td><div className="adm-table-name" style={{ fontSize:12 }}>{o.pickupLocation}</div><div className="adm-table-sub">→ {o.dropoffLocation}</div></td>
-                            <td><span style={{ fontSize:11, color:'rgba(240,244,255,0.5)' }}>{DELIVERY_TYPE_LABELS[o.deliveryType]}</span></td>
+                            <td><div className="adm-table-name" style={{ fontSize: 12 }}>{o.pickupLocation}</div><div className="adm-table-sub">→ {o.dropoffLocation}</div></td>
+                            <td><span style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{DELIVERY_TYPE_LABELS[o.deliveryType]}</span></td>
                             <td><StatusBadge status={o.status} /></td>
-                            <td style={{ color:'#f97316', fontWeight:600 }}>GHS {o.deliveryFee}</td>
+                            <td style={{ color: '#f97316', fontWeight: 600 }}>GHS {o.deliveryFee}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -278,13 +284,14 @@ export default function AdminDashboard() {
               <div className="adm-page-title">All Orders</div>
               <div className="adm-filters">
                 {[
-                  { value:'', label:'All' },
-                  { value:'received', label:'Received' },
-                  { value:'assigned', label:'Assigned' },
-                  { value:'picked-up', label:'Picked Up' },
-                  { value:'in-transit', label:'In Transit' },
-                  { value:'delivered', label:'Delivered' },
-                  { value:'cancelled', label:'Cancelled' },
+                  { value: '', label: 'All' },
+                  { value: 'received', label: 'Received' },
+                  { value: 'assigned', label: 'Assigned' },
+                  { value: 'accepted', label: 'Accepted' },
+                  { value: 'picked-up', label: 'Picked Up' },
+                  { value: 'in-transit', label: 'In Transit' },
+                  { value: 'delivered', label: 'Delivered' },
+                  { value: 'cancelled', label: 'Cancelled' },
                 ].map(f => (
                   <button key={f.value} className={`adm-filter-btn${statusFilter === f.value ? ' active' : ''}`} onClick={() => handleStatusFilter(f.value)}>{f.label}</button>
                 ))}
@@ -297,14 +304,14 @@ export default function AdminDashboard() {
                   <tbody>
                     {filteredOrders.map(o => (
                       <tr key={o._id}>
-                        <td><span style={{ color:'#f97316', fontWeight:700 }}>{o.orderID}</span></td>
+                        <td><span style={{ color: '#f97316', fontWeight: 700 }}>{o.orderID}</span></td>
                         <td><div className="adm-table-name">{o.customerName}</div><div className="adm-table-sub">{o.customerPhone}</div></td>
                         <td><div className="adm-table-name">{o.recipientName}</div><div className="adm-table-sub">{o.recipientPhone}</div></td>
-                        <td><div style={{ fontSize:12 }}>{o.pickupLocation}</div><div className="adm-table-sub">→ {o.dropoffLocation}</div></td>
-                        <td><span style={{ fontSize:11, color:'rgba(240,244,255,0.5)' }}>{DELIVERY_TYPE_LABELS[o.deliveryType]}</span></td>
-                        <td><span style={{ fontSize:12, color: o.assignedRider ? '#86efac' : 'rgba(240,244,255,0.25)' }}>{o.assignedRider?.name || 'Unassigned'}</span></td>
+                        <td><div style={{ fontSize: 12 }}>{o.pickupLocation}</div><div className="adm-table-sub">→ {o.dropoffLocation}</div></td>
+                        <td><span style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{DELIVERY_TYPE_LABELS[o.deliveryType]}</span></td>
+                        <td><span style={{ fontSize: 12, color: o.assignedRider ? '#86efac' : 'rgba(240,244,255,0.25)' }}>{o.assignedRider?.name || 'Unassigned'}</span></td>
                         <td><StatusBadge status={o.status} /></td>
-                        <td style={{ color:'#f97316', fontWeight:600 }}>GHS {o.deliveryFee}</td>
+                        <td style={{ color: '#f97316', fontWeight: 600 }}>GHS {o.deliveryFee}</td>
                         <td><button className="adm-btn-sm adm-btn-orange" onClick={() => setSelectedOrder(o)}>Manage</button></td>
                       </tr>
                     ))}
@@ -329,20 +336,20 @@ export default function AdminDashboard() {
                     {riders.map(r => (
                       <tr key={r._id}>
                         <td><div className="adm-table-name">{r.name}</div></td>
-                        <td><span style={{ fontSize:12 }}>{r.email}</span></td>
-                        <td><span style={{ fontSize:12 }}>{r.phone}</span></td>
-                        <td><span style={{ color:'#f97316', fontWeight:600 }}>{r.totalDeliveries}</span></td>
+                        <td><span style={{ fontSize: 12 }}>{r.email}</span></td>
+                        <td><span style={{ fontSize: 12 }}>{r.phone}</span></td>
+                        <td><span style={{ color: '#f97316', fontWeight: 600 }}>{r.totalDeliveries}</span></td>
                         <td>
-                          <span style={{ padding:'4px 10px', borderRadius:100, fontSize:11, fontWeight:600, background: r.status === 'active' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: r.status === 'active' ? '#86efac' : '#fca5a5', border:`1px solid ${r.status === 'active' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+                          <span style={{ padding: '4px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: r.status === 'active' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: r.status === 'active' ? '#86efac' : '#fca5a5', border: `1px solid ${r.status === 'active' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
                             {r.status === 'active' ? 'Active' : 'Suspended'}
                           </span>
                         </td>
                         <td>
-                          <div style={{ display:'flex', gap:6 }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
                             <button className={`adm-btn-sm ${r.status === 'active' ? 'adm-btn-red' : 'adm-btn-green'}`} onClick={() => updateRiderStatus(r._id, r.status === 'active' ? 'suspended' : 'active').then(loadAll)}>
                               {r.status === 'active' ? 'Suspend' : 'Activate'}
                             </button>
-                            <button className="adm-btn-sm adm-btn-red" onClick={() => { if(confirm('Delete this rider?')) deleteRider(r._id).then(loadAll) }}>Delete</button>
+                            <button className="adm-btn-sm adm-btn-red" onClick={() => { if (confirm('Delete this rider?')) deleteRider(r._id).then(loadAll) }}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -359,39 +366,39 @@ export default function AdminDashboard() {
             <div>
               <div className="adm-page-title">Reports</div>
               {stats && (
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
                   {[
-                    { label:'Total Orders', value: stats.total, icon:'📦', desc:'All time bookings' },
-                    { label:'Completed Deliveries', value: stats.completed, icon:'✅', desc:'Successfully delivered' },
-                    { label:'Pending Deliveries', value: stats.pending, icon:'⏳', desc:'In progress' },
-                    { label:'Cancelled Orders', value: stats.cancelled, icon:'❌', desc:'Cancelled by customer or admin' },
-                    { label:'Total Revenue', value: `GHS ${stats.revenue}`, icon:'💰', desc:'From completed deliveries' },
-                    { label:'Completion Rate', value: stats.total ? `${Math.round((stats.completed/stats.total)*100)}%` : '0%', icon:'📈', desc:'Orders completed successfully' },
+                    { label: 'Total Orders', value: stats.total, icon: '📦', desc: 'All time bookings' },
+                    { label: 'Completed Deliveries', value: stats.completed, icon: '✅', desc: 'Successfully delivered' },
+                    { label: 'Pending Deliveries', value: stats.pending, icon: '⏳', desc: 'In progress' },
+                    { label: 'Cancelled Orders', value: stats.cancelled, icon: '❌', desc: 'Cancelled by customer or admin' },
+                    { label: 'Total Revenue', value: `GHS ${stats.revenue}`, icon: '💰', desc: 'From completed deliveries' },
+                    { label: 'Completion Rate', value: stats.total ? `${Math.round((stats.completed / stats.total) * 100)}%` : '0%', icon: '📈', desc: 'Orders completed successfully' },
                   ].map(s => (
-                    <div key={s.label} className="adm-stat" style={{ borderTop:'2px solid #f97316' }}>
+                    <div key={s.label} className="adm-stat" style={{ borderTop: '2px solid #f97316' }}>
                       <div className="adm-stat-icon">{s.icon}</div>
-                      <div className="adm-stat-num" style={{ color:'#f97316', fontSize:28 }}>{s.value}</div>
+                      <div className="adm-stat-num" style={{ color: '#f97316', fontSize: 28 }}>{s.value}</div>
                       <div className="adm-stat-label">{s.label}</div>
-                      <div style={{ fontSize:11, color:'rgba(240,244,255,0.2)', marginTop:4 }}>{s.desc}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.2)', marginTop: 4 }}>{s.desc}</div>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div style={{ marginTop:32 }}>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:'#fff', marginBottom:16 }}>Rider Performance</div>
+              <div style={{ marginTop: 32 }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: '#fff', marginBottom: 16 }}>Rider Performance</div>
                 <div className="adm-table-wrap">
                   <table className="adm-table">
                     <thead>
                       <tr><th>Rider</th><th>Phone</th><th>Total Deliveries</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                      {riders.sort((a,b) => b.totalDeliveries - a.totalDeliveries).map(r => (
+                      {riders.sort((a, b) => b.totalDeliveries - a.totalDeliveries).map(r => (
                         <tr key={r._id}>
                           <td><div className="adm-table-name">{r.name}</div><div className="adm-table-sub">{r.email}</div></td>
                           <td>{r.phone}</td>
-                          <td><span style={{ color:'#f97316', fontWeight:700, fontSize:16 }}>{r.totalDeliveries}</span></td>
-                          <td><span style={{ fontSize:11, color: r.status === 'active' ? '#86efac' : '#fca5a5' }}>{r.status}</span></td>
+                          <td><span style={{ color: '#f97316', fontWeight: 700, fontSize: 16 }}>{r.totalDeliveries}</span></td>
+                          <td><span style={{ fontSize: 11, color: r.status === 'active' ? '#86efac' : '#fca5a5' }}>{r.status}</span></td>
                         </tr>
                       ))}
                     </tbody>
@@ -410,10 +417,10 @@ export default function AdminDashboard() {
           <div className="adm-modal">
             <div className="adm-modal-head">
               <div>
-                <div style={{ fontSize:11, color:'rgba(240,244,255,0.35)', marginBottom:4 }}>Order Details</div>
-                <div className="adm-modal-title" style={{ color:'#f97316' }}>{selectedOrder.orderID}</div>
+                <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.35)', marginBottom: 4 }}>Order Details</div>
+                <div className="adm-modal-title" style={{ color: '#f97316' }}>{selectedOrder.orderID}</div>
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <StatusBadge status={selectedOrder.status} />
                 <button className="adm-modal-close" onClick={() => setSelectedOrder(null)}>✕</button>
               </div>
@@ -438,21 +445,21 @@ export default function AdminDashboard() {
                   <div className="adm-modal-item"><div className="adm-modal-item-label">Pickup</div><div className="adm-modal-item-value">{selectedOrder.pickupLocation}</div></div>
                   <div className="adm-modal-item"><div className="adm-modal-item-label">Drop-off</div><div className="adm-modal-item-value">{selectedOrder.dropoffLocation}</div></div>
                   <div className="adm-modal-item"><div className="adm-modal-item-label">Type</div><div className="adm-modal-item-value">{DELIVERY_TYPE_LABELS[selectedOrder.deliveryType]}</div></div>
-                  <div className="adm-modal-item"><div className="adm-modal-item-label">Fee</div><div className="adm-modal-item-value" style={{ color:'#f97316' }}>GHS {selectedOrder.deliveryFee}</div></div>
+                  <div className="adm-modal-item"><div className="adm-modal-item-label">Fee</div><div className="adm-modal-item-value" style={{ color: '#f97316' }}>GHS {selectedOrder.deliveryFee}</div></div>
                   <div className="adm-modal-item"><div className="adm-modal-item-label">Payment</div><div className="adm-modal-item-value">{selectedOrder.paymentMethod}</div></div>
                   {selectedOrder.deliveryType === 'scheduled' && (
                     <div className="adm-modal-item"><div className="adm-modal-item-label">Scheduled</div><div className="adm-modal-item-value">{selectedOrder.scheduledDate} at {selectedOrder.scheduledTime}</div></div>
                   )}
                 </div>
                 {selectedOrder.packageDescription && (
-                  <div className="adm-modal-item" style={{ marginTop:10 }}><div className="adm-modal-item-label">Package</div><div className="adm-modal-item-value">{selectedOrder.packageDescription}</div></div>
+                  <div className="adm-modal-item" style={{ marginTop: 10 }}><div className="adm-modal-item-label">Package</div><div className="adm-modal-item-value">{selectedOrder.packageDescription}</div></div>
                 )}
                 {selectedOrder.additionalNotes && (
-                  <div className="adm-modal-item" style={{ marginTop:10 }}><div className="adm-modal-item-label">Notes</div><div className="adm-modal-item-value">{selectedOrder.additionalNotes}</div></div>
+                  <div className="adm-modal-item" style={{ marginTop: 10 }}><div className="adm-modal-item-label">Notes</div><div className="adm-modal-item-value">{selectedOrder.additionalNotes}</div></div>
                 )}
                 {selectedOrder.packageImage && (
-                  <div style={{ marginTop:10 }}>
-                    <div className="adm-modal-item-label" style={{ marginBottom:6 }}>Package Photo</div>
+                  <div style={{ marginTop: 10 }}>
+                    <div className="adm-modal-item-label" style={{ marginBottom: 6 }}>Package Photo</div>
                     <img src={selectedOrder.packageImage} alt="Package" className="adm-proof-img" />
                   </div>
                 )}
@@ -469,7 +476,7 @@ export default function AdminDashboard() {
                     ))}
                   </select>
                   {selectedOrder.assignedRider && (
-                    <div style={{ fontSize:13, color:'#86efac' }}>✓ Currently assigned to <strong>{selectedOrder.assignedRider.name}</strong></div>
+                    <div style={{ fontSize: 13, color: '#86efac' }}>✓ Currently assigned to <strong>{selectedOrder.assignedRider.name}</strong></div>
                   )}
                 </div>
               )}
@@ -479,12 +486,11 @@ export default function AdminDashboard() {
                 <div className="adm-modal-section">
                   <div className="adm-modal-section-title">Update Status</div>
                   <div className="adm-status-btns">
-                    {['received','assigned','picked-up','in-transit','delivered','cancelled'].map(s => (
-                      <button key={s} className={`adm-btn-sm ${selectedOrder.status === s ? 'adm-btn-orange' : 'adm-btn-sm'}`}
-                        style={selectedOrder.status !== s ? { background:'rgba(255,255,255,0.05)', color:'rgba(240,244,255,0.5)', border:'1px solid rgba(255,255,255,0.08)' } : {}}
-                        onClick={() => handleUpdateStatus(selectedOrder._id, s)}>
-                        {STATUS_LABELS[s]}
-                      </button>
+                    {['received', 'assigned', 'accepted', 'picked-up', 'in-transit', 'delivered', 'cancelled'].map(s => (<button key={s} className={`adm-btn-sm ${selectedOrder.status === s ? 'adm-btn-orange' : 'adm-btn-sm'}`}
+                      style={selectedOrder.status !== s ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(240,244,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' } : {}}
+                      onClick={() => handleUpdateStatus(selectedOrder._id, s)}>
+                      {STATUS_LABELS[s]}
+                    </button>
                     ))}
                   </div>
                 </div>
@@ -494,8 +500,8 @@ export default function AdminDashboard() {
               {selectedOrder.status === 'delivered' && (selectedOrder.proofPhoto || selectedOrder.proofRecipientName) && (
                 <div className="adm-modal-section">
                   <div className="adm-modal-section-title">Proof of Delivery</div>
-                  <div style={{ background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:12, padding:16 }}>
-                    {selectedOrder.proofRecipientName && <div style={{ fontSize:13, color:'#86efac', marginBottom: selectedOrder.proofPhoto ? 10 : 0 }}>Received by: <strong>{selectedOrder.proofRecipientName}</strong></div>}
+                  <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12, padding: 16 }}>
+                    {selectedOrder.proofRecipientName && <div style={{ fontSize: 13, color: '#86efac', marginBottom: selectedOrder.proofPhoto ? 10 : 0 }}>Received by: <strong>{selectedOrder.proofRecipientName}</strong></div>}
                     {selectedOrder.proofPhoto && <img src={selectedOrder.proofPhoto} alt="Proof" className="adm-proof-img" />}
                   </div>
                 </div>
@@ -508,17 +514,17 @@ export default function AdminDashboard() {
       {/* ADD RIDER MODAL */}
       {riderModal && (
         <div className="adm-modal-backdrop" onClick={e => e.target === e.currentTarget && setRiderModal(false)}>
-          <div className="adm-modal" style={{ maxWidth:440 }}>
+          <div className="adm-modal" style={{ maxWidth: 440 }}>
             <div className="adm-modal-head">
               <div className="adm-modal-title">Add New Rider</div>
               <button className="adm-modal-close" onClick={() => setRiderModal(false)}>✕</button>
             </div>
             <div className="adm-modal-body">
               <form onSubmit={handleCreateRider}>
-                <div className="adm-form-field"><label className="adm-form-label">Full Name</label><input className="adm-form-input" value={riderForm.name} onChange={e => setRiderForm({...riderForm, name:e.target.value})} required placeholder="Kofi Mensah" /></div>
-                <div className="adm-form-field"><label className="adm-form-label">Email</label><input className="adm-form-input" type="email" value={riderForm.email} onChange={e => setRiderForm({...riderForm, email:e.target.value})} required placeholder="kofi@email.com" /></div>
-                <div className="adm-form-field"><label className="adm-form-label">Phone</label><input className="adm-form-input" value={riderForm.phone} onChange={e => setRiderForm({...riderForm, phone:e.target.value})} required placeholder="0244000000" /></div>
-                <div className="adm-form-field"><label className="adm-form-label">Password</label><input className="adm-form-input" type="password" value={riderForm.password} onChange={e => setRiderForm({...riderForm, password:e.target.value})} required placeholder="Minimum 6 characters" minLength={6} /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Full Name</label><input className="adm-form-input" value={riderForm.name} onChange={e => setRiderForm({ ...riderForm, name: e.target.value })} required placeholder="Kofi Mensah" /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Email</label><input className="adm-form-input" type="email" value={riderForm.email} onChange={e => setRiderForm({ ...riderForm, email: e.target.value })} required placeholder="kofi@email.com" /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Phone</label><input className="adm-form-input" value={riderForm.phone} onChange={e => setRiderForm({ ...riderForm, phone: e.target.value })} required placeholder="0244000000" /></div>
+                <div className="adm-form-field"><label className="adm-form-label">Password</label><input className="adm-form-input" type="password" value={riderForm.password} onChange={e => setRiderForm({ ...riderForm, password: e.target.value })} required placeholder="Minimum 6 characters" minLength={6} /></div>
                 {riderError && <div className="adm-form-error">✕ {riderError}</div>}
                 <button className="adm-form-btn" type="submit" disabled={riderLoading}>{riderLoading ? 'Adding...' : 'Add Rider'}</button>
               </form>

@@ -5,17 +5,18 @@ import { getRiderOrders, updateOrderStatus, uploadProof, getRiderMe } from '../u
 
 const STATUS_LABELS = {
   received: 'Order Received', assigned: 'Rider Assigned',
-  'picked-up': 'Picked Up', 'in-transit': 'In Transit',
-  delivered: 'Delivered', cancelled: 'Cancelled',
+  accepted: 'Accepted', 'picked-up': 'Picked Up',
+  'in-transit': 'In Transit', delivered: 'Delivered', cancelled: 'Cancelled',
 }
 
 const STATUS_COLORS = {
-  received:    { bg:'rgba(99,102,241,0.15)',  color:'#a5b4fc' },
-  assigned:    { bg:'rgba(249,115,22,0.15)',  color:'#fdba74' },
-  'picked-up': { bg:'rgba(234,179,8,0.15)',   color:'#fde047' },
-  'in-transit':{ bg:'rgba(59,130,246,0.15)',  color:'#93c5fd' },
-  delivered:   { bg:'rgba(34,197,94,0.15)',   color:'#86efac' },
-  cancelled:   { bg:'rgba(239,68,68,0.15)',   color:'#fca5a5' },
+  received: { bg: 'rgba(99,102,241,0.15)', color: '#a5b4fc' },
+  assigned: { bg: 'rgba(249,115,22,0.15)', color: '#fdba74' },
+  accepted: { bg: 'rgba(168,85,247,0.15)', color: '#d8b4fe' },
+  'picked-up': { bg: 'rgba(234,179,8,0.15)', color: '#fde047' },
+  'in-transit': { bg: 'rgba(59,130,246,0.15)', color: '#93c5fd' },
+  delivered: { bg: 'rgba(34,197,94,0.15)', color: '#86efac' },
+  cancelled: { bg: 'rgba(239,68,68,0.15)', color: '#fca5a5' },
 }
 
 const NEXT_STATUS = {
@@ -27,30 +28,34 @@ const NEXT_STATUS = {
 export default function RiderDashboard() {
   const { rider, logout } = useRiderAuth()
   const navigate = useNavigate()
-  const [orders, setOrders]           = useState([])
-  const [riderInfo, setRiderInfo]     = useState(null)
-  const [loading, setLoading]         = useState(true)
+  const [orders, setOrders] = useState([])
+  const [riderInfo, setRiderInfo] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [activeTab, setActiveTab]     = useState('active')
-  const [proofPhoto, setProofPhoto]   = useState(null)
-  const [proofName, setProofName]     = useState('')
+  const [activeTab, setActiveTab] = useState('active')
+  const [proofPhoto, setProofPhoto] = useState(null)
+  const [proofName, setProofName] = useState('')
   const [proofLoading, setProofLoading] = useState(false)
-  const [proofError, setProofError]   = useState('')
+  const [proofError, setProofError] = useState('')
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    loadAll()
+    const interval = setInterval(() => { loadAll() }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadAll = async () => {
     setLoading(true)
     try {
       const [o, r] = await Promise.all([getRiderOrders(), getRiderMe()])
       setOrders(o); setRiderInfo(r)
-    } catch(e) { console.error(e) }
+    } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
   const handleStatusUpdate = async (orderId, status) => {
     try { await updateOrderStatus(orderId, status); loadAll(); setSelectedOrder(null) }
-    catch(e) { alert(e.response?.data?.error || 'Failed to update status') }
+    catch (e) { alert(e.response?.data?.error || 'Failed to update status') }
   }
 
   const handleProofSubmit = async () => {
@@ -62,15 +67,15 @@ export default function RiderDashboard() {
       if (proofName) fd.append('proofRecipientName', proofName)
       await uploadProof(selectedOrder._id, fd)
       loadAll(); setSelectedOrder(null); setProofPhoto(null); setProofName('')
-    } catch(e) { setProofError(e.response?.data?.error || 'Failed to upload proof') }
+    } catch (e) { setProofError(e.response?.data?.error || 'Failed to upload proof') }
     finally { setProofLoading(false) }
   }
 
   const handleLogout = () => { logout(); navigate('/rider/login') }
 
-  const activeOrders    = orders.filter(o => !['delivered','cancelled'].includes(o.status))
+  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status))
   const completedOrders = orders.filter(o => o.status === 'delivered')
-  const displayOrders   = activeTab === 'active' ? activeOrders : completedOrders
+  const displayOrders = activeTab === 'active' ? activeOrders : completedOrders
 
   return (
     <>
@@ -211,7 +216,7 @@ export default function RiderDashboard() {
                   <div className="rd-order-meta">
                     <div className="rd-meta-item">Recipient: <span>{order.recipientName}</span></div>
                     <div className="rd-meta-item">Phone: <span>{order.recipientPhone}</span></div>
-                    <div className="rd-meta-item">Fee: <span style={{ color:'#f97316' }}>GHS {order.deliveryFee}</span></div>
+                    <div className="rd-meta-item">Fee: <span style={{ color: '#f97316' }}>GHS {order.deliveryFee}</span></div>
                   </div>
                 </div>
               )
@@ -226,8 +231,8 @@ export default function RiderDashboard() {
           <div className="rd-modal">
             <div className="rd-modal-head">
               <div>
-                <div style={{ fontSize:11, color:'rgba(240,244,255,0.3)', marginBottom:2 }}>Delivery Details</div>
-                <div className="rd-modal-title" style={{ color:'#f97316' }}>{selectedOrder.orderID}</div>
+                <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.3)', marginBottom: 2 }}>Delivery Details</div>
+                <div className="rd-modal-title" style={{ color: '#f97316' }}>{selectedOrder.orderID}</div>
               </div>
               <button className="rd-modal-close" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
@@ -240,7 +245,7 @@ export default function RiderDashboard() {
                   <div className="rd-info-item"><div className="rd-info-label">📍 Pickup</div><div className="rd-info-value">{selectedOrder.pickupLocation}</div></div>
                   <div className="rd-info-item"><div className="rd-info-label">🎯 Drop-off</div><div className="rd-info-value">{selectedOrder.dropoffLocation}</div></div>
                 </div>
-                <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedOrder.dropoffLocation)}`} target="_blank" rel="noreferrer" className="rd-maps-btn" style={{ marginTop:10 }}>
+                <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedOrder.dropoffLocation)}`} target="_blank" rel="noreferrer" className="rd-maps-btn" style={{ marginTop: 10 }}>
                   🗺️ Open in Google Maps
                 </a>
               </div>
@@ -249,8 +254,8 @@ export default function RiderDashboard() {
               <div className="rd-modal-section">
                 <div className="rd-modal-section-title">Contacts</div>
                 <div className="rd-info-grid">
-                  <div className="rd-info-item"><div className="rd-info-label">Customer</div><div className="rd-info-value">{selectedOrder.customerName}</div><div style={{ fontSize:12, color:'#f97316', marginTop:4 }}><a href={`tel:${selectedOrder.customerPhone}`} style={{ color:'#f97316' }}>{selectedOrder.customerPhone}</a></div></div>
-                  <div className="rd-info-item"><div className="rd-info-label">Recipient</div><div className="rd-info-value">{selectedOrder.recipientName}</div><div style={{ fontSize:12, color:'#f97316', marginTop:4 }}><a href={`tel:${selectedOrder.recipientPhone}`} style={{ color:'#f97316' }}>{selectedOrder.recipientPhone}</a></div></div>
+                  <div className="rd-info-item"><div className="rd-info-label">Customer</div><div className="rd-info-value">{selectedOrder.customerName}</div><div style={{ fontSize: 12, color: '#f97316', marginTop: 4 }}><a href={`tel:${selectedOrder.customerPhone}`} style={{ color: '#f97316' }}>{selectedOrder.customerPhone}</a></div></div>
+                  <div className="rd-info-item"><div className="rd-info-label">Recipient</div><div className="rd-info-value">{selectedOrder.recipientName}</div><div style={{ fontSize: 12, color: '#f97316', marginTop: 4 }}><a href={`tel:${selectedOrder.recipientPhone}`} style={{ color: '#f97316' }}>{selectedOrder.recipientPhone}</a></div></div>
                 </div>
               </div>
 
@@ -258,8 +263,8 @@ export default function RiderDashboard() {
               <div className="rd-modal-section">
                 <div className="rd-modal-section-title">Package</div>
                 <div className="rd-info-item"><div className="rd-info-label">Description</div><div className="rd-info-value">{selectedOrder.packageDescription}</div></div>
-                {selectedOrder.additionalNotes && <div className="rd-info-item" style={{ marginTop:8 }}><div className="rd-info-label">Notes</div><div className="rd-info-value">{selectedOrder.additionalNotes}</div></div>}
-                {selectedOrder.packageImage && <div style={{ marginTop:8 }}><img src={selectedOrder.packageImage} alt="Package" style={{ width:'100%', maxHeight:180, objectFit:'cover', borderRadius:10 }} /></div>}
+                {selectedOrder.additionalNotes && <div className="rd-info-item" style={{ marginTop: 8 }}><div className="rd-info-label">Notes</div><div className="rd-info-value">{selectedOrder.additionalNotes}</div></div>}
+                {selectedOrder.packageImage && <div style={{ marginTop: 8 }}><img src={selectedOrder.packageImage} alt="Package" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10 }} /></div>}
               </div>
 
               {/* Actions */}
@@ -268,6 +273,9 @@ export default function RiderDashboard() {
                   <div className="rd-modal-section-title">Update Status</div>
                   <div className="rd-action-btns">
                     {selectedOrder.status === 'assigned' && (
+                      <button className="rd-btn rd-btn-orange" onClick={() => handleStatusUpdate(selectedOrder._id, 'accepted')}>✅ Accept Delivery</button>
+                    )}
+                    {selectedOrder.status === 'accepted' && (
                       <button className="rd-btn rd-btn-orange" onClick={() => handleStatusUpdate(selectedOrder._id, 'picked-up')}>📦 Mark as Picked Up</button>
                     )}
                     {selectedOrder.status === 'picked-up' && (
@@ -284,10 +292,10 @@ export default function RiderDashboard() {
                   <input className="rd-proof-input" placeholder="Recipient name (who received the package)" value={proofName} onChange={e => setProofName(e.target.value)} />
                   <div className="rd-file-btn" onClick={() => document.getElementById('proof-img').click()}>
                     {proofPhoto ? `📷 ${proofPhoto.name}` : '📷 Upload delivery photo (optional)'}
-                    <input id="proof-img" type="file" accept="image/*" style={{ display:'none' }} onChange={e => setProofPhoto(e.target.files[0])} />
+                    <input id="proof-img" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setProofPhoto(e.target.files[0])} />
                   </div>
                   {proofError && <div className="rd-proof-error">✕ {proofError}</div>}
-                  <button className="rd-btn rd-btn-green" onClick={handleProofSubmit} disabled={proofLoading} style={{ width:'100%' }}>
+                  <button className="rd-btn rd-btn-green" onClick={handleProofSubmit} disabled={proofLoading} style={{ width: '100%' }}>
                     {proofLoading ? 'Submitting...' : '✅ Confirm Delivery'}
                   </button>
                 </div>
@@ -295,10 +303,10 @@ export default function RiderDashboard() {
 
               {/* Already delivered */}
               {selectedOrder.status === 'delivered' && (
-                <div style={{ background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:12, padding:16, textAlign:'center' }}>
-                  <div style={{ fontSize:24, marginBottom:8 }}>✅</div>
-                  <div style={{ color:'#86efac', fontWeight:600 }}>Delivery Completed</div>
-                  {selectedOrder.proofRecipientName && <div style={{ fontSize:13, color:'rgba(240,244,255,0.5)', marginTop:4 }}>Received by: {selectedOrder.proofRecipientName}</div>}
+                <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+                  <div style={{ color: '#86efac', fontWeight: 600 }}>Delivery Completed</div>
+                  {selectedOrder.proofRecipientName && <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.5)', marginTop: 4 }}>Received by: {selectedOrder.proofRecipientName}</div>}
                 </div>
               )}
             </div>

@@ -52,11 +52,11 @@ const orderSchema = new mongoose.Schema({
   },
 
   // Status
-  status: {
-    type: String,
-    enum: ['received', 'assigned', 'picked-up', 'in-transit', 'delivered', 'cancelled'],
-    default: 'received'
-  },
+status: {
+  type: String,
+  enum: ['received', 'assigned', 'accepted', 'picked-up', 'in-transit', 'delivered', 'cancelled'],
+  default: 'received'
+},
 
   // Rider
   assignedRider: { type: mongoose.Schema.Types.ObjectId, ref: 'Rider', default: null },
@@ -67,12 +67,5 @@ const orderSchema = new mongoose.Schema({
 
 }, { timestamps: true })
 
-// Auto-generate Order ID before saving
-// orderSchema.pre('save', async function () {
-//   if (!this.orderID) {
-//     const count = await mongoose.model('Order').countDocuments()
-//     this.orderID = `SWG${String(count + 1).padStart(3, '0')}`
-//   }g
-// })
 
 export default mongoose.model('Order', orderSchema)

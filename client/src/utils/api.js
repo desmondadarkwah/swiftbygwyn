@@ -8,8 +8,12 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use((config) => {
   const adminToken = localStorage.getItem('swg_admin_token')
   const riderToken = localStorage.getItem('swg_rider_token')
+  const url = config.url || ''
 
-  const isRiderRoute = config.url?.includes('/riders/me') || config.url?.includes('/orders/rider')
+  const isRiderRoute =
+    url.includes('/riders/me') ||
+    url.includes('/orders/rider') ||
+    url.includes('/proof')
 
   if (isRiderRoute && riderToken) {
     config.headers.Authorization = `Bearer ${riderToken}`
@@ -31,7 +35,10 @@ axiosInstance.interceptors.response.use(
       url.includes('/riders/login')
 
     if (status === 401 && !isAuthEndpoint) {
-      const isRiderRoute = url.includes('/riders/me') || url.includes('/orders/rider')
+      const isRiderRoute =
+        config.url?.includes('/riders/me') ||
+        config.url?.includes('/orders/rider') ||
+        config.url?.includes('/orders/') && config.url?.includes('/proof')
       if (isRiderRoute) {
         localStorage.removeItem('swg_rider_token')
         window.location.href = '/rider/login'

@@ -34,4 +34,3 @@ function App() {
 
 export default App
 
-// rider created succesffully and rider logged in succesesfully and done and pushed also and i assigend and so it on the rider dashboar and when i clicked to confirm delivery i got ✕ Rider access only at the rider side, and i had to go to the admin side to rather trigger delivered and it automaticallly did delivered at the rider side too but it is still the rider that has to do delivered like the way when rider is assigend the rider cilck mark as assigend mark as transit etc, or maybe i'm not getting things well
