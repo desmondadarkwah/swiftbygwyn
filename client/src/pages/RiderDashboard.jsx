@@ -4,39 +4,45 @@ import { useRiderAuth } from '../context/RiderAuthContext'
 import { getRiderOrders, updateOrderStatus, uploadProof, getRiderMe } from '../utils/api'
 
 const STATUS_LABELS = {
-  received: 'Order Received', assigned: 'Rider Assigned',
+  received: 'Order Received', assigned: 'Assigned to You',
   accepted: 'Accepted', 'picked-up': 'Picked Up',
   'in-transit': 'In Transit', delivered: 'Delivered', cancelled: 'Cancelled',
 }
 
 const STATUS_COLORS = {
-  received: { bg: 'rgba(99,102,241,0.15)', color: '#a5b4fc' },
-  assigned: { bg: 'rgba(249,115,22,0.15)', color: '#fdba74' },
-  accepted: { bg: 'rgba(168,85,247,0.15)', color: '#d8b4fe' },
-  'picked-up': { bg: 'rgba(234,179,8,0.15)', color: '#fde047' },
-  'in-transit': { bg: 'rgba(59,130,246,0.15)', color: '#93c5fd' },
-  delivered: { bg: 'rgba(34,197,94,0.15)', color: '#86efac' },
-  cancelled: { bg: 'rgba(239,68,68,0.15)', color: '#fca5a5' },
+  received:    { bg:'rgba(99,102,241,0.15)',  color:'#a5b4fc' },
+  assigned:    { bg:'rgba(249,115,22,0.15)',  color:'#fdba74' },
+  accepted:    { bg:'rgba(168,85,247,0.15)',  color:'#d8b4fe' },
+  'picked-up': { bg:'rgba(234,179,8,0.15)',   color:'#fde047' },
+  'in-transit':{ bg:'rgba(59,130,246,0.15)',  color:'#93c5fd' },
+  delivered:   { bg:'rgba(34,197,94,0.15)',   color:'#86efac' },
+  cancelled:   { bg:'rgba(239,68,68,0.15)',   color:'#fca5a5' },
 }
 
-const NEXT_STATUS = {
-  assigned: 'picked-up',
-  'picked-up': 'in-transit',
-  'in-transit': null,
+const DELIVERY_TYPE_LABELS = {
+  standard: 'Standard', 'same-day': 'Same-Day',
+  express: 'Express 🚀', scheduled: 'Scheduled 📅',
+}
+
+const NEXT_ACTION = {
+  assigned:    { label:'✅ Accept Delivery',      next:'accepted',    btn:'rd-btn-orange' },
+  accepted:    { label:'📦 Mark as Picked Up',    next:'picked-up',   btn:'rd-btn-orange' },
+  'picked-up': { label:'🚀 Mark as In Transit',   next:'in-transit',  btn:'rd-btn-blue' },
 }
 
 export default function RiderDashboard() {
   const { rider, logout } = useRiderAuth()
   const navigate = useNavigate()
-  const [orders, setOrders] = useState([])
-  const [riderInfo, setRiderInfo] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [orders, setOrders]         = useState([])
+  const [riderInfo, setRiderInfo]   = useState(null)
+  const [loading, setLoading]       = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [activeTab, setActiveTab] = useState('active')
+  const [activeTab, setActiveTab]   = useState('active')
   const [proofPhoto, setProofPhoto] = useState(null)
-  const [proofName, setProofName] = useState('')
+  const [proofName, setProofName]   = useState('')
   const [proofLoading, setProofLoading] = useState(false)
   const [proofError, setProofError] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
     loadAll()
@@ -45,37 +51,44 @@ export default function RiderDashboard() {
   }, [])
 
   const loadAll = async () => {
-    setLoading(true)
     try {
       const [o, r] = await Promise.all([getRiderOrders(), getRiderMe()])
       setOrders(o); setRiderInfo(r)
-    } catch (e) { console.error(e) }
+    } catch(e) { console.error(e) }
     finally { setLoading(false) }
   }
 
   const handleStatusUpdate = async (orderId, status) => {
-    try { await updateOrderStatus(orderId, status); loadAll(); setSelectedOrder(null) }
-    catch (e) { alert(e.response?.data?.error || 'Failed to update status') }
+    setActionLoading(true)
+    try {
+      await updateOrderStatus(orderId, status)
+      await loadAll()
+      setSelectedOrder(prev => prev ? { ...prev, status } : null)
+    } catch(e) { alert(e.response?.data?.error || 'Failed to update status') }
+    finally { setActionLoading(false) }
   }
 
   const handleProofSubmit = async () => {
-    if (!proofPhoto && !proofName) { setProofError('Please upload a photo or enter recipient name.'); return }
+    if (!proofPhoto && !proofName.trim()) { setProofError('Please enter recipient name or upload a delivery photo.'); return }
     setProofLoading(true); setProofError('')
     try {
       const fd = new FormData()
       if (proofPhoto) fd.append('proofPhoto', proofPhoto)
       if (proofName) fd.append('proofRecipientName', proofName)
       await uploadProof(selectedOrder._id, fd)
-      loadAll(); setSelectedOrder(null); setProofPhoto(null); setProofName('')
-    } catch (e) { setProofError(e.response?.data?.error || 'Failed to upload proof') }
+      await loadAll()
+      setSelectedOrder(null); setProofPhoto(null); setProofName('')
+    } catch(e) { setProofError(e.response?.data?.error || 'Failed to submit proof. Try again.') }
     finally { setProofLoading(false) }
   }
 
   const handleLogout = () => { logout(); navigate('/rider/login') }
 
-  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status))
+  const activeOrders    = orders.filter(o => !['delivered','cancelled'].includes(o.status))
   const completedOrders = orders.filter(o => o.status === 'delivered')
-  const displayOrders = activeTab === 'active' ? activeOrders : completedOrders
+  const displayOrders   = activeTab === 'active' ? activeOrders : completedOrders
+
+  const urgentOrders = activeOrders.filter(o => o.deliveryType === 'express')
 
   return (
     <>
@@ -83,69 +96,119 @@ export default function RiderDashboard() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         .rd-root { min-height: 100vh; background: #0b0f1a; font-family: 'Inter', sans-serif; color: #f0f4ff; }
-        .rd-topbar { background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.07); padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
-        .rd-topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; display: flex; align-items: center; gap: 8px; }
-        .rd-topbar-logo-icon { width: 32px; height: 32px; background: #f97316; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        .rd-topbar-right { display: flex; align-items: center; gap: 12px; }
-        .rd-rider-name { font-size: 13px; color: rgba(240,244,255,0.5); }
-        .rd-logout { padding: 7px 16px; background: transparent; color: rgba(240,244,255,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font-size: 12px; cursor: pointer; }
+
+        /* TOPBAR */
+        .rd-topbar { background: rgba(11,15,26,0.95); border-bottom: 1px solid rgba(255,255,255,0.07); padding: 0 20px; height: 62px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
+        .rd-topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 17px; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .rd-topbar-logo-icon { width: 32px; height: 32px; background: #f97316; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .rd-topbar-right { display: flex; align-items: center; gap: 10px; }
+        .rd-rider-badge { display: flex; align-items: center; gap: 6px; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); border-radius: 100px; padding: 4px 12px; }
+        .rd-rider-dot { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; animation: rdPulse 2s infinite; }
+        @keyframes rdPulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+        .rd-rider-name { font-size: 12px; font-weight: 500; color: rgba(240,244,255,0.7); }
+        .rd-logout { padding: 7px 14px; background: transparent; color: rgba(240,244,255,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
         .rd-logout:hover { border-color: #f97316; color: #f97316; }
 
-        .rd-main { max-width: 700px; margin: 0 auto; padding: 28px 20px 80px; }
+        .rd-main { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
 
-        .rd-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
-        .rd-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px; text-align: center; }
-        .rd-stat-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; color: #f97316; }
-        .rd-stat-label { font-size: 11px; color: rgba(240,244,255,0.35); margin-top: 3px; }
+        /* URGENT BANNER */
+        .rd-urgent { background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.06)); border: 1px solid rgba(239,68,68,0.25); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+        .rd-urgent-icon { font-size: 22px; flex-shrink: 0; }
+        .rd-urgent-text { font-size: 13px; font-weight: 600; color: #fca5a5; }
+        .rd-urgent-sub { font-size: 11px; color: rgba(240,244,255,0.35); margin-top: 2px; }
 
-        .rd-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
-        .rd-tab { padding: 8px 20px; border-radius: 100px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(240,244,255,0.4); transition: all 0.2s; }
+        /* STATS */
+        .rd-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .rd-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 14px 12px; text-align: center; }
+        .rd-stat-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; color: #f97316; line-height: 1; margin-bottom: 4px; }
+        .rd-stat-label { font-size: 10px; color: rgba(240,244,255,0.3); letter-spacing: 0.04em; text-transform: uppercase; }
+
+        /* TABS */
+        .rd-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+        .rd-tab { padding: 8px 18px; border-radius: 100px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(240,244,255,0.4); transition: all 0.2s; }
         .rd-tab.active { background: #f97316; color: #fff; border-color: #f97316; }
 
-        .rd-order-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 20px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; }
-        .rd-order-card:hover { border-color: rgba(249,115,22,0.3); }
-        .rd-order-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-        .rd-order-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: #f97316; }
-        .rd-status-badge { padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; }
-        .rd-route { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+        /* ORDER CARDS */
+        .rd-order-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+        .rd-order-card:hover { border-color: rgba(249,115,22,0.3); background: rgba(255,255,255,0.04); }
+        .rd-order-card.urgent { border-color: rgba(239,68,68,0.3); }
+        .rd-order-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+        .rd-order-id-wrap {}
+        .rd-order-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: #f97316; line-height: 1; }
+        .rd-order-type { font-size: 10px; color: rgba(240,244,255,0.3); margin-top: 3px; letter-spacing: 0.04em; }
+        .rd-status-badge { padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+
+        .rd-route { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 10px; }
         .rd-route-item { display: flex; align-items: flex-start; gap: 10px; }
         .rd-route-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
         .rd-route-dot.pickup { background: #f97316; }
         .rd-route-dot.dropoff { background: #22c55e; }
-        .rd-route-text { font-size: 13px; color: rgba(240,244,255,0.7); }
-        .rd-route-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 1px; letter-spacing: 0.04em; }
-        .rd-order-meta { display: flex; gap: 16px; flex-wrap: wrap; }
-        .rd-meta-item { font-size: 12px; color: rgba(240,244,255,0.4); }
-        .rd-meta-item span { color: rgba(240,244,255,0.7); font-weight: 500; }
-        .rd-empty { padding: 60px 0; text-align: center; color: rgba(240,244,255,0.25); font-size: 14px; }
+        .rd-route-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 1px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .rd-route-text { font-size: 13px; color: rgba(240,244,255,0.75); font-weight: 500; }
+
+        .rd-order-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .rd-order-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+        .rd-meta-item { font-size: 11px; color: rgba(240,244,255,0.35); }
+        .rd-meta-item span { color: rgba(240,244,255,0.65); font-weight: 500; }
+        .rd-quick-action { padding: 7px 14px; background: #f97316; color: #fff; border: none; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
+        .rd-quick-action:hover { opacity: 0.88; }
+
+        .rd-empty { padding: 56px 0; text-align: center; color: rgba(240,244,255,0.25); }
+        .rd-empty-icon { font-size: 40px; margin-bottom: 12px; }
+        .rd-empty-text { font-size: 14px; }
 
         /* MODAL */
-        .rd-modal-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; }
-        .rd-modal { background: #0f1525; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding-bottom: 32px; }
-        .rd-modal-head { padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #0f1525; }
-        .rd-modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #fff; }
-        .rd-modal-close { background: rgba(255,255,255,0.06); border: none; color: rgba(240,244,255,0.5); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; }
-        .rd-modal-body { padding: 24px; }
-        .rd-modal-section { margin-bottom: 20px; }
-        .rd-modal-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(240,244,255,0.3); margin-bottom: 12px; }
-        .rd-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .rd-modal-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: flex; align-items: flex-end; justify-content: center; }
+        .rd-modal { background: #0f1525; border: 1px solid rgba(255,255,255,0.1); border-top: 2px solid #f97316; border-radius: 20px 20px 0 0; width: 100%; max-width: 620px; max-height: 92vh; overflow-y: auto; padding-bottom: 40px; }
+        .rd-modal-head { padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #0f1525; z-index: 5; }
+        .rd-modal-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: #f97316; }
+        .rd-modal-status { font-size: 11px; color: rgba(240,244,255,0.35); margin-top: 2px; }
+        .rd-modal-close { background: rgba(255,255,255,0.06); border: none; color: rgba(240,244,255,0.5); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+        .rd-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+        .rd-section { }
+        .rd-section-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(240,244,255,0.25); margin-bottom: 10px; }
+        .rd-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .rd-info-item { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px; }
-        .rd-info-label { font-size: 11px; color: rgba(240,244,255,0.3); margin-bottom: 4px; }
+        .rd-info-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
         .rd-info-value { font-size: 13px; color: #f0f4ff; font-weight: 500; }
-        .rd-action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-        .rd-btn { padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+
+        .rd-contact-card { background: rgba(249,115,22,0.05); border: 1px solid rgba(249,115,22,0.15); border-radius: 12px; padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .rd-contact-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .rd-contact-name { font-size: 14px; font-weight: 600; color: #fff; }
+        .rd-contact-phone { font-size: 12px; color: #f97316; margin-top: 2px; }
+        .rd-call-btn { padding: 8px 16px; background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.3); border-radius: 8px; color: #f97316; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
+        .rd-call-btn:hover { background: #f97316; color: #fff; }
+
+        .rd-maps-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; background: rgba(59,130,246,0.12); color: #93c5fd; border: 1px solid rgba(59,130,246,0.25); border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+        .rd-maps-btn:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+        /* ACTION BUTTONS */
+        .rd-action-section { background: rgba(249,115,22,0.05); border: 1px solid rgba(249,115,22,0.15); border-radius: 14px; padding: 18px; }
+        .rd-action-title { font-size: 13px; font-weight: 600; color: rgba(240,244,255,0.5); margin-bottom: 12px; }
+        .rd-btn { padding: 13px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: all 0.2s; width: 100%; text-align: center; }
+        .rd-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         .rd-btn-orange { background: #f97316; color: #fff; }
-        .rd-btn-orange:hover { opacity: 0.88; }
+        .rd-btn-orange:hover:not(:disabled) { opacity: 0.88; }
         .rd-btn-blue { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
-        .rd-btn-blue:hover { background: #3b82f6; color: #fff; }
-        .rd-btn-green { background: rgba(34,197,94,0.2); color: #86efac; border: 1px solid rgba(34,197,94,0.3); flex: 1; }
-        .rd-btn-green:hover { background: #22c55e; color: #fff; }
-        .rd-maps-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-        .rd-maps-btn:hover { background: #3b82f6; color: #fff; }
-        .rd-proof-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #fff; outline: none; font-family: 'Inter', sans-serif; margin-bottom: 10px; }
-        .rd-proof-input:focus { border-color: #f97316; }
-        .rd-file-btn { width: 100%; padding: 14px; background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px; color: rgba(240,244,255,0.4); font-size: 13px; cursor: pointer; text-align: center; margin-bottom: 10px; }
-        .rd-proof-error { font-size: 12px; color: #fca5a5; padding: 10px; background: rgba(239,68,68,0.1); border-radius: 8px; margin-bottom: 10px; }
+        .rd-btn-blue:hover:not(:disabled) { background: #3b82f6; color: #fff; }
+        .rd-btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; }
+        .rd-btn-green:hover:not(:disabled) { opacity: 0.9; }
+
+        /* PROOF */
+        .rd-proof-section { background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.2); border-radius: 14px; padding: 18px; }
+        .rd-proof-title { font-size: 14px; font-weight: 600; color: #86efac; margin-bottom: 14px; }
+        .rd-proof-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #fff; outline: none; font-family: 'Inter', sans-serif; margin-bottom: 10px; transition: border-color 0.2s; }
+        .rd-proof-input:focus { border-color: #22c55e; }
+        .rd-proof-input::placeholder { color: rgba(240,244,255,0.2); }
+        .rd-file-zone { width: 100%; padding: 16px; background: rgba(255,255,255,0.03); border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 10px; color: rgba(240,244,255,0.35); font-size: 13px; cursor: pointer; text-align: center; margin-bottom: 12px; transition: all 0.2s; }
+        .rd-file-zone.has-file { border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.04); }
+        .rd-proof-error { font-size: 12px; color: #fca5a5; padding: 10px 12px; background: rgba(239,68,68,0.1); border-radius: 8px; margin-bottom: 10px; }
+
+        .rd-delivered-box { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 14px; padding: 20px; text-align: center; }
+        .rd-delivered-icon { font-size: 36px; margin-bottom: 8px; }
+        .rd-delivered-text { font-size: 15px; font-weight: 600; color: #86efac; }
+        .rd-delivered-sub { font-size: 12px; color: rgba(240,244,255,0.35); margin-top: 4px; }
       `}</style>
 
       <div className="rd-root">
@@ -155,12 +218,26 @@ export default function RiderDashboard() {
             SwiftByGwyn
           </div>
           <div className="rd-topbar-right">
-            <span className="rd-rider-name">{riderInfo?.name || rider?.name}</span>
+            <div className="rd-rider-badge">
+              <div className="rd-rider-dot" />
+              <span className="rd-rider-name">{riderInfo?.name || rider?.name || 'Rider'}</span>
+            </div>
             <button className="rd-logout" onClick={handleLogout}>Sign Out</button>
           </div>
         </nav>
 
         <main className="rd-main">
+          {/* Urgent Alert */}
+          {urgentOrders.length > 0 && (
+            <div className="rd-urgent">
+              <div className="rd-urgent-icon">🚨</div>
+              <div>
+                <div className="rd-urgent-text">{urgentOrders.length} Express delivery{urgentOrders.length > 1 ? 'ies' : ''} require immediate attention</div>
+                <div className="rd-urgent-sub">Express orders are time-sensitive — please prioritize</div>
+              </div>
+            </div>
+          )}
+
           {/* Stats */}
           <div className="rd-stats">
             <div className="rd-stat">
@@ -169,7 +246,7 @@ export default function RiderDashboard() {
             </div>
             <div className="rd-stat">
               <div className="rd-stat-num">{completedOrders.length}</div>
-              <div className="rd-stat-label">Completed</div>
+              <div className="rd-stat-label">Today</div>
             </div>
             <div className="rd-stat">
               <div className="rd-stat-num">{riderInfo?.totalDeliveries || 0}</div>
@@ -180,28 +257,34 @@ export default function RiderDashboard() {
           {/* Tabs */}
           <div className="rd-tabs">
             <button className={`rd-tab${activeTab === 'active' ? ' active' : ''}`} onClick={() => setActiveTab('active')}>
-              Active ({activeOrders.length})
+              Active {activeOrders.length > 0 && `(${activeOrders.length})`}
             </button>
             <button className={`rd-tab${activeTab === 'completed' ? ' active' : ''}`} onClick={() => setActiveTab('completed')}>
-              Completed ({completedOrders.length})
+              Completed {completedOrders.length > 0 && `(${completedOrders.length})`}
             </button>
           </div>
 
           {/* Orders */}
           {loading ? (
-            <div className="rd-empty">Loading your deliveries...</div>
+            <div className="rd-empty"><div className="rd-empty-icon">⏳</div><div className="rd-empty-text">Loading your deliveries...</div></div>
           ) : displayOrders.length === 0 ? (
             <div className="rd-empty">
-              {activeTab === 'active' ? '🏍️ No active deliveries right now.' : '✅ No completed deliveries yet.'}
+              <div className="rd-empty-icon">{activeTab === 'active' ? '🏍️' : '🎉'}</div>
+              <div className="rd-empty-text">{activeTab === 'active' ? 'No active deliveries right now.' : 'No completed deliveries yet.'}</div>
             </div>
           ) : (
             displayOrders.map(order => {
               const sc = STATUS_COLORS[order.status] || STATUS_COLORS.received
+              const nextAction = NEXT_ACTION[order.status]
+              const isUrgent = order.deliveryType === 'express'
               return (
-                <div key={order._id} className="rd-order-card" onClick={() => setSelectedOrder(order)}>
+                <div key={order._id} className={`rd-order-card${isUrgent ? ' urgent' : ''}`} onClick={() => setSelectedOrder(order)}>
                   <div className="rd-order-head">
-                    <div className="rd-order-id">{order.orderID}</div>
-                    <span className="rd-status-badge" style={{ background: sc.bg, color: sc.color }}>{STATUS_LABELS[order.status]}</span>
+                    <div className="rd-order-id-wrap">
+                      <div className="rd-order-id">{order.orderID}</div>
+                      <div className="rd-order-type">{DELIVERY_TYPE_LABELS[order.deliveryType] || order.deliveryType}</div>
+                    </div>
+                    <span className="rd-status-badge" style={{ background:sc.bg, color:sc.color }}>{STATUS_LABELS[order.status]}</span>
                   </div>
                   <div className="rd-route">
                     <div className="rd-route-item">
@@ -213,10 +296,16 @@ export default function RiderDashboard() {
                       <div><div className="rd-route-label">Drop-off</div><div className="rd-route-text">{order.dropoffLocation}</div></div>
                     </div>
                   </div>
-                  <div className="rd-order-meta">
-                    <div className="rd-meta-item">Recipient: <span>{order.recipientName}</span></div>
-                    <div className="rd-meta-item">Phone: <span>{order.recipientPhone}</span></div>
-                    <div className="rd-meta-item">Fee: <span style={{ color: '#f97316' }}>GHS {order.deliveryFee}</span></div>
+                  <div className="rd-order-footer">
+                    <div className="rd-order-meta">
+                      <div className="rd-meta-item">Recipient: <span>{order.recipientName}</span></div>
+                      <div className="rd-meta-item">Fee: <span style={{ color:'#f97316' }}>GHS {order.deliveryFee}</span></div>
+                    </div>
+                    {nextAction && (
+                      <button className="rd-quick-action" onClick={e => { e.stopPropagation(); handleStatusUpdate(order._id, nextAction.next) }}>
+                        {nextAction.label}
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -231,82 +320,119 @@ export default function RiderDashboard() {
           <div className="rd-modal">
             <div className="rd-modal-head">
               <div>
-                <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.3)', marginBottom: 2 }}>Delivery Details</div>
-                <div className="rd-modal-title" style={{ color: '#f97316' }}>{selectedOrder.orderID}</div>
+                <div className="rd-modal-id">{selectedOrder.orderID}</div>
+                <div className="rd-modal-status">{DELIVERY_TYPE_LABELS[selectedOrder.deliveryType]} · {STATUS_LABELS[selectedOrder.status]}</div>
               </div>
               <button className="rd-modal-close" onClick={() => setSelectedOrder(null)}>✕</button>
             </div>
-            <div className="rd-modal-body">
 
+            <div className="rd-modal-body">
               {/* Route */}
-              <div className="rd-modal-section">
-                <div className="rd-modal-section-title">Route</div>
-                <div className="rd-info-grid">
+              <div className="rd-section">
+                <div className="rd-section-title">Route</div>
+                <div className="rd-info-grid" style={{ marginBottom:10 }}>
                   <div className="rd-info-item"><div className="rd-info-label">📍 Pickup</div><div className="rd-info-value">{selectedOrder.pickupLocation}</div></div>
                   <div className="rd-info-item"><div className="rd-info-label">🎯 Drop-off</div><div className="rd-info-value">{selectedOrder.dropoffLocation}</div></div>
                 </div>
-                <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedOrder.dropoffLocation)}`} target="_blank" rel="noreferrer" className="rd-maps-btn" style={{ marginTop: 10 }}>
-                  🗺️ Open in Google Maps
+                <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(selectedOrder.pickupLocation)}&destination=${encodeURIComponent(selectedOrder.dropoffLocation)}`} target="_blank" rel="noreferrer" className="rd-maps-btn">
+                  🗺️ Navigate: Pickup → Drop-off
                 </a>
               </div>
 
               {/* Contacts */}
-              <div className="rd-modal-section">
-                <div className="rd-modal-section-title">Contacts</div>
-                <div className="rd-info-grid">
-                  <div className="rd-info-item"><div className="rd-info-label">Customer</div><div className="rd-info-value">{selectedOrder.customerName}</div><div style={{ fontSize: 12, color: '#f97316', marginTop: 4 }}><a href={`tel:${selectedOrder.customerPhone}`} style={{ color: '#f97316' }}>{selectedOrder.customerPhone}</a></div></div>
-                  <div className="rd-info-item"><div className="rd-info-label">Recipient</div><div className="rd-info-value">{selectedOrder.recipientName}</div><div style={{ fontSize: 12, color: '#f97316', marginTop: 4 }}><a href={`tel:${selectedOrder.recipientPhone}`} style={{ color: '#f97316' }}>{selectedOrder.recipientPhone}</a></div></div>
+              <div className="rd-section">
+                <div className="rd-section-title">Contacts</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <div className="rd-contact-card">
+                    <div>
+                      <div className="rd-contact-label">Sender</div>
+                      <div className="rd-contact-name">{selectedOrder.customerName}</div>
+                      <div className="rd-contact-phone">{selectedOrder.customerPhone}</div>
+                    </div>
+                    <a href={`tel:${selectedOrder.customerPhone}`} className="rd-call-btn">📞 Call</a>
+                  </div>
+                  <div className="rd-contact-card">
+                    <div>
+                      <div className="rd-contact-label">Recipient</div>
+                      <div className="rd-contact-name">{selectedOrder.recipientName}</div>
+                      <div className="rd-contact-phone">{selectedOrder.recipientPhone}</div>
+                    </div>
+                    <a href={`tel:${selectedOrder.recipientPhone}`} className="rd-call-btn">📞 Call</a>
+                  </div>
                 </div>
               </div>
 
               {/* Package */}
-              <div className="rd-modal-section">
-                <div className="rd-modal-section-title">Package</div>
-                <div className="rd-info-item"><div className="rd-info-label">Description</div><div className="rd-info-value">{selectedOrder.packageDescription}</div></div>
-                {selectedOrder.additionalNotes && <div className="rd-info-item" style={{ marginTop: 8 }}><div className="rd-info-label">Notes</div><div className="rd-info-value">{selectedOrder.additionalNotes}</div></div>}
-                {selectedOrder.packageImage && <div style={{ marginTop: 8 }}><img src={selectedOrder.packageImage} alt="Package" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10 }} /></div>}
+              <div className="rd-section">
+                <div className="rd-section-title">Package Info</div>
+                <div className="rd-info-item" style={{ marginBottom:8 }}>
+                  <div className="rd-info-label">What's being delivered</div>
+                  <div className="rd-info-value">{selectedOrder.packageDescription}</div>
+                </div>
+                {selectedOrder.additionalNotes && (
+                  <div className="rd-info-item" style={{ marginBottom:8 }}>
+                    <div className="rd-info-label">Special Instructions</div>
+                    <div className="rd-info-value">{selectedOrder.additionalNotes}</div>
+                  </div>
+                )}
+                <div className="rd-info-grid">
+                  <div className="rd-info-item">
+                    <div className="rd-info-label">Payment Method</div>
+                    <div className="rd-info-value" style={{ textTransform:'capitalize' }}>{selectedOrder.paymentMethod?.replace('-',' ')}</div>
+                  </div>
+                  <div className="rd-info-item">
+                    <div className="rd-info-label">Delivery Fee</div>
+                    <div className="rd-info-value" style={{ color:'#f97316' }}>GHS {selectedOrder.deliveryFee}</div>
+                  </div>
+                </div>
+                {selectedOrder.packageImage && (
+                  <img src={selectedOrder.packageImage} alt="Package" style={{ width:'100%', maxHeight:180, objectFit:'cover', borderRadius:10, marginTop:8 }} />
+                )}
               </div>
 
-              {/* Actions */}
-              {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && (
-                <div className="rd-modal-section">
-                  <div className="rd-modal-section-title">Update Status</div>
-                  <div className="rd-action-btns">
-                    {selectedOrder.status === 'assigned' && (
-                      <button className="rd-btn rd-btn-orange" onClick={() => handleStatusUpdate(selectedOrder._id, 'accepted')}>✅ Accept Delivery</button>
-                    )}
-                    {selectedOrder.status === 'accepted' && (
-                      <button className="rd-btn rd-btn-orange" onClick={() => handleStatusUpdate(selectedOrder._id, 'picked-up')}>📦 Mark as Picked Up</button>
-                    )}
-                    {selectedOrder.status === 'picked-up' && (
-                      <button className="rd-btn rd-btn-blue" onClick={() => handleStatusUpdate(selectedOrder._id, 'in-transit')}>🚀 Mark as In Transit</button>
-                    )}
-                  </div>
+              {/* Status Actions */}
+              {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && NEXT_ACTION[selectedOrder.status] && (
+                <div className="rd-action-section">
+                  <div className="rd-action-title">Update Delivery Status</div>
+                  <button
+                    className={`rd-btn ${NEXT_ACTION[selectedOrder.status].btn}`}
+                    onClick={() => handleStatusUpdate(selectedOrder._id, NEXT_ACTION[selectedOrder.status].next)}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? 'Updating...' : NEXT_ACTION[selectedOrder.status].label}
+                  </button>
                 </div>
               )}
 
               {/* Proof of Delivery */}
               {selectedOrder.status === 'in-transit' && (
-                <div className="rd-modal-section">
-                  <div className="rd-modal-section-title">Mark as Delivered</div>
-                  <input className="rd-proof-input" placeholder="Recipient name (who received the package)" value={proofName} onChange={e => setProofName(e.target.value)} />
-                  <div className="rd-file-btn" onClick={() => document.getElementById('proof-img').click()}>
-                    {proofPhoto ? `📷 ${proofPhoto.name}` : '📷 Upload delivery photo (optional)'}
-                    <input id="proof-img" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setProofPhoto(e.target.files[0])} />
+                <div className="rd-proof-section">
+                  <div className="rd-proof-title">📸 Confirm Delivery</div>
+                  <input
+                    className="rd-proof-input"
+                    placeholder="Who received the package? (Full name)"
+                    value={proofName}
+                    onChange={e => setProofName(e.target.value)}
+                  />
+                  <div className={`rd-file-zone${proofPhoto ? ' has-file' : ''}`} onClick={() => document.getElementById('proof-img').click()}>
+                    {proofPhoto ? `✅ ${proofPhoto.name}` : '📷 Upload delivery photo (optional but recommended)'}
+                    <input id="proof-img" type="file" accept="image/*" style={{ display:'none' }} onChange={e => setProofPhoto(e.target.files[0])} />
                   </div>
-                  {proofError && <div className="rd-proof-error">✕ {proofError}</div>}
-                  <button className="rd-btn rd-btn-green" onClick={handleProofSubmit} disabled={proofLoading} style={{ width: '100%' }}>
-                    {proofLoading ? 'Submitting...' : '✅ Confirm Delivery'}
+                  {proofError && <div className="rd-proof-error">⚠️ {proofError}</div>}
+                  <button className="rd-btn rd-btn-green" onClick={handleProofSubmit} disabled={proofLoading}>
+                    {proofLoading ? 'Confirming...' : '✅ Mark as Delivered'}
                   </button>
                 </div>
               )}
 
-              {/* Already delivered */}
+              {/* Delivered State */}
               {selectedOrder.status === 'delivered' && (
-                <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
-                  <div style={{ color: '#86efac', fontWeight: 600 }}>Delivery Completed</div>
-                  {selectedOrder.proofRecipientName && <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.5)', marginTop: 4 }}>Received by: {selectedOrder.proofRecipientName}</div>}
+                <div className="rd-delivered-box">
+                  <div className="rd-delivered-icon">🎉</div>
+                  <div className="rd-delivered-text">Delivery Completed!</div>
+                  {selectedOrder.proofRecipientName && (
+                    <div className="rd-delivered-sub">Received by: {selectedOrder.proofRecipientName}</div>
+                  )}
                 </div>
               )}
             </div>
