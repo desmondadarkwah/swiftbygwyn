@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useEffect, useState } from 'react'
 import { fetchSettings } from '../utils/api'
 
 // const WA_NUMBER = '233000000000' // Replace with real SwiftByGwyn WhatsApp number
