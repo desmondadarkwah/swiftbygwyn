@@ -1,21 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createOrder } from '../utils/api'
+import { createOrder, fetchSettings } from '../utils/api'
 
 const DELIVERY_TYPES = [
-  { value: 'standard',  label: 'Standard Delivery', icon: '🚶', desc: 'Within the day', fee: 30,  eta: '2-4 hours' },
-  { value: 'same-day',  label: 'Same-Day',           icon: '⚡', desc: 'Book before noon', fee: 50, eta: '1-3 hours' },
-  { value: 'express',   label: 'Express / Urgent',   icon: '🚀', desc: 'Fastest option',  fee: 80,  eta: '30-60 mins' },
-  { value: 'scheduled', label: 'Scheduled',           icon: '📅', desc: 'Pick date & time', fee: 40, eta: 'Your chosen time' },
+  { value: 'standard',  label: 'Standard Delivery', icon: '🚶', desc: 'Within the day',    eta: '2-4 hours' },
+  { value: 'same-day',  label: 'Same-Day',           icon: '⚡', desc: 'Book before noon',  eta: '1-3 hours' },
+  { value: 'express',   label: 'Express / Urgent',   icon: '🚀', desc: 'Fastest option',    eta: '30-60 mins' },
+  { value: 'scheduled', label: 'Scheduled',           icon: '📅', desc: 'Pick date & time', eta: 'Your chosen time' },
 ]
 
 export default function BookDelivery() {
   const navigate = useNavigate()
-  const [step, setStep]       = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState(null)
+  const [step, setStep]           = useState(1)
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
+  const [success, setSuccess]     = useState(null)
   const [packageImage, setPackageImage] = useState(null)
+  const [settings, setSettings]   = useState(null)
 
   const [form, setForm] = useState({
     customerName: '', customerPhone: '',
@@ -27,9 +28,20 @@ export default function BookDelivery() {
     paymentMethod: 'cash',
   })
 
+  useEffect(() => {
+    fetchSettings().then(setSettings).catch(console.error)
+  }, [])
+
+  const FEES = {
+    standard:   settings?.standardFee  || 30,
+    'same-day': settings?.sameDayFee   || 50,
+    express:    settings?.expressFee   || 80,
+    scheduled:  settings?.scheduledFee || 40,
+  }
+
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
   const selectedType = DELIVERY_TYPES.find(t => t.value === form.deliveryType)
-  const deliveryFee  = selectedType?.fee || 30
+  const deliveryFee  = FEES[form.deliveryType]
 
   const validatePhone = (phone) => /^[0-9+\s\-]{10,15}$/.test(phone.trim())
 
@@ -83,35 +95,39 @@ export default function BookDelivery() {
           .suc-check { width: 72px; height: 72px; background: rgba(34,197,94,0.15); border: 2px solid rgba(34,197,94,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px; }
           .suc-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; color: #fff; margin-bottom: 10px; }
           .suc-sub { font-size: 14px; color: rgba(240,244,255,0.45); line-height: 1.7; margin-bottom: 28px; }
-          .suc-id-box { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25); border-radius: 16px; padding: 22px; margin-bottom: 10px; }
+          .suc-id-box { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25); border-radius: 16px; padding: 22px; margin-bottom: 16px; }
           .suc-id-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(240,244,255,0.3); margin-bottom: 10px; }
           .suc-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 38px; color: #f97316; letter-spacing: 0.06em; }
           .suc-id-tip { font-size: 12px; color: rgba(240,244,255,0.3); margin-top: 8px; }
-          .suc-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+          .suc-details { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+          .suc-detail-row { display: flex; justify-content: space-between; font-size: 13px; gap: 12px; }
+          .suc-detail-label { color: rgba(240,244,255,0.35); flex-shrink: 0; }
+          .suc-detail-value { color: #f0f4ff; font-weight: 500; text-align: right; }
+          .suc-actions { display: flex; flex-direction: column; gap: 10px; }
           .suc-btn { display: block; padding: 14px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; transition: opacity 0.2s; }
           .suc-btn:hover { opacity: 0.88; }
           .suc-btn-ghost { display: block; padding: 14px; background: transparent; color: rgba(240,244,255,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 14px; cursor: pointer; text-decoration: none; text-align: center; }
-          .suc-details { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
-          .suc-detail-row { display: flex; justify-content: space-between; font-size: 13px; }
-          .suc-detail-label { color: rgba(240,244,255,0.35); }
-          .suc-detail-value { color: #f0f4ff; font-weight: 500; }
         `}</style>
         <div className="suc-root">
           <div className="suc-card">
             <div className="suc-check">🎉</div>
             <div className="suc-title">Booking Confirmed!</div>
-            <p className="suc-sub">Your delivery has been booked. Save your Order ID below to track your package at any time.</p>
+            <p className="suc-sub">Your delivery has been booked successfully. Save your Order ID to track your package at any time.</p>
             <div className="suc-id-box">
               <div className="suc-id-label">Your Order ID</div>
               <div className="suc-id">{success.orderID}</div>
-              <div className="suc-id-tip">Screenshot this for your records</div>
+              <div className="suc-id-tip">📸 Screenshot this for your records</div>
             </div>
             <div className="suc-details">
               <div className="suc-detail-row"><span className="suc-detail-label">From</span><span className="suc-detail-value">{form.pickupLocation}</span></div>
               <div className="suc-detail-row"><span className="suc-detail-label">To</span><span className="suc-detail-value">{form.dropoffLocation}</span></div>
-              <div className="suc-detail-row"><span className="suc-detail-label">Recipient</span><span className="suc-detail-value">{form.recipientName}</span></div>
+              <div className="suc-detail-row"><span className="suc-detail-label">Recipient</span><span className="suc-detail-value">{form.recipientName} · {form.recipientPhone}</span></div>
+              <div className="suc-detail-row"><span className="suc-detail-label">Type</span><span className="suc-detail-value">{selectedType?.label}</span></div>
               <div className="suc-detail-row"><span className="suc-detail-label">Fee</span><span className="suc-detail-value" style={{ color:'#f97316' }}>GHS {deliveryFee}</span></div>
               <div className="suc-detail-row"><span className="suc-detail-label">Payment</span><span className="suc-detail-value" style={{ textTransform:'capitalize' }}>{form.paymentMethod.replace('-',' ')}</span></div>
+              {form.deliveryType === 'scheduled' && (
+                <div className="suc-detail-row"><span className="suc-detail-label">Scheduled</span><span className="suc-detail-value">{form.scheduledDate} at {form.scheduledTime}</span></div>
+              )}
             </div>
             <div className="suc-actions">
               <a href={`/track/${success.orderID}`} className="suc-btn">🔍 Track My Order</a>
@@ -133,11 +149,9 @@ export default function BookDelivery() {
         .bk-nav { background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
         .bk-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; }
         .bk-logo-icon { width: 32px; height: 32px; background: #f97316; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        .bk-back { font-size: 13px; color: rgba(240,244,255,0.4); text-decoration: none; display: flex; align-items: center; gap: 4px; }
+        .bk-back { font-size: 13px; color: rgba(240,244,255,0.4); text-decoration: none; }
         .bk-back:hover { color: #f97316; }
         .bk-body { max-width: 580px; margin: 0 auto; padding: 32px 20px 80px; }
-
-        /* STEPS */
         .bk-steps { display: flex; align-items: center; margin-bottom: 32px; }
         .bk-step { display: flex; align-items: center; gap: 8px; }
         .bk-step-circle { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; transition: all 0.3s; }
@@ -149,14 +163,10 @@ export default function BookDelivery() {
         .bk-step-label.done { color: rgba(134,239,172,0.7); }
         .bk-step-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); margin: 0 10px; min-width: 20px; }
         .bk-step-line.done { background: rgba(34,197,94,0.3); }
-
-        /* CARD */
         .bk-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 28px; margin-bottom: 16px; }
-        .bk-section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #fff; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .bk-section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #fff; margin-bottom: 20px; }
         .bk-section-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 20px 0; }
         .bk-subsection { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(240,244,255,0.3); margin-bottom: 14px; }
-
-        /* FIELDS */
         .bk-field { margin-bottom: 16px; }
         .bk-label { display: block; font-size: 12px; font-weight: 500; color: rgba(240,244,255,0.45); margin-bottom: 7px; }
         .bk-label span { color: #f97316; }
@@ -165,8 +175,6 @@ export default function BookDelivery() {
         .bk-input::placeholder { color: rgba(240,244,255,0.18); }
         .bk-textarea { resize: vertical; min-height: 85px; }
         .bk-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-        /* DELIVERY TYPES */
         .bk-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .bk-type-card { background: rgba(255,255,255,0.03); border: 1.5px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
         .bk-type-card:hover { border-color: rgba(249,115,22,0.3); }
@@ -175,15 +183,11 @@ export default function BookDelivery() {
         .bk-type-icon { font-size: 24px; margin-bottom: 8px; }
         .bk-type-name { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 2px; }
         .bk-type-desc { font-size: 11px; color: rgba(240,244,255,0.35); margin-bottom: 6px; }
-        .bk-type-fee { font-size: 13px; font-weight: 700; color: #f97316; }
-        .bk-type-eta { font-size: 10px; color: rgba(240,244,255,0.3); }
-
-        /* FILE UPLOAD */
+        .bk-type-fee { font-size: 14px; font-weight: 700; color: #f97316; }
+        .bk-type-eta { font-size: 10px; color: rgba(240,244,255,0.3); margin-top: 2px; }
         .bk-file-zone { width: 100%; background: rgba(255,255,255,0.03); border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; color: rgba(240,244,255,0.3); font-size: 13px; transition: all 0.2s; }
-        .bk-file-zone:hover { border-color: rgba(249,115,22,0.3); color: rgba(240,244,255,0.5); }
-        .bk-file-zone.has-file { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.04); color: #86efac; }
-
-        /* PAYMENT */
+        .bk-file-zone:hover { border-color: rgba(249,115,22,0.3); }
+        .bk-file-zone.has-file { border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.04); }
         .bk-payment-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .bk-payment-card { background: rgba(255,255,255,0.03); border: 1.5px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 18px 14px; cursor: pointer; transition: all 0.2s; text-align: center; position: relative; }
         .bk-payment-card:hover { border-color: rgba(249,115,22,0.3); }
@@ -192,38 +196,25 @@ export default function BookDelivery() {
         .bk-payment-icon { font-size: 28px; margin-bottom: 8px; }
         .bk-payment-label { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 3px; }
         .bk-payment-sub { font-size: 11px; color: rgba(240,244,255,0.3); }
-
-        /* FEE BOX */
         .bk-fee-box { background: linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.05)); border: 1px solid rgba(249,115,22,0.25); border-radius: 14px; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-        .bk-fee-left {}
-        .bk-fee-label { font-size: 12px; color: rgba(240,244,255,0.4); margin-bottom: 3px; }
         .bk-fee-amount { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; color: #f97316; }
-        .bk-fee-right { text-align: right; }
-        .bk-fee-type { font-size: 12px; color: rgba(240,244,255,0.4); margin-bottom: 3px; }
-        .bk-fee-eta { font-size: 12px; color: rgba(249,115,22,0.7); font-weight: 500; }
-
-        /* SUMMARY */
-        .bk-summary { display: flex; flex-direction: column; gap: 0; margin-bottom: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; }
-        .bk-summary-row { display: flex; gap: 16px; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .bk-fee-label { font-size: 12px; color: rgba(240,244,255,0.4); margin-bottom: 3px; }
+        .bk-fee-type { font-size: 12px; color: rgba(240,244,255,0.4); margin-bottom: 3px; text-align: right; }
+        .bk-fee-eta { font-size: 12px; color: rgba(249,115,22,0.7); font-weight: 500; text-align: right; }
+        .bk-summary { display: flex; flex-direction: column; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+        .bk-summary-row { display: flex; gap: 16px; padding: 11px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
         .bk-summary-row:last-child { border-bottom: none; }
         .bk-summary-label { width: 90px; font-size: 12px; color: rgba(240,244,255,0.3); flex-shrink: 0; padding-top: 1px; }
         .bk-summary-value { font-size: 13px; color: #f0f4ff; font-weight: 500; }
-
-        /* ERROR */
-        .bk-error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #fca5a5; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-
-        /* ACTIONS */
+        .bk-error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #fca5a5; margin-bottom: 14px; }
         .bk-actions { display: flex; gap: 10px; }
-        .bk-btn-primary { flex: 1; padding: 15px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.01em; }
+        .bk-btn-primary { flex: 1; padding: 15px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
         .bk-btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
         .bk-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-        .bk-btn-ghost { padding: 15px 22px; background: transparent; color: rgba(240,244,255,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .bk-btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: rgba(240,244,255,0.7); }
-
-        /* TRUST BADGES */
+        .bk-btn-ghost { padding: 15px 22px; background: transparent; color: rgba(240,244,255,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 14px; cursor: pointer; }
+        .bk-btn-ghost:hover { border-color: rgba(255,255,255,0.2); }
         .bk-trust { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
         .bk-trust-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(240,244,255,0.3); }
-
         @media (max-width: 520px) {
           .bk-body { padding: 20px 16px 80px; }
           .bk-card { padding: 20px; }
@@ -234,7 +225,6 @@ export default function BookDelivery() {
       `}</style>
 
       <div className="bk-root">
-        {/* Nav */}
         <nav className="bk-nav">
           <a href="/" className="bk-logo">
             <div className="bk-logo-icon">🚀</div>
@@ -271,7 +261,6 @@ export default function BookDelivery() {
                   <input className="bk-input" type="tel" placeholder="e.g. 0244000000" value={form.customerPhone} onChange={e => set('customerPhone', e.target.value)} />
                 </div>
               </div>
-
               <div className="bk-section-divider" />
               <div className="bk-section-title" style={{ fontSize:16, marginBottom:16 }}>📦 Recipient Details</div>
               <div className="bk-row">
@@ -299,21 +288,19 @@ export default function BookDelivery() {
                 <label className="bk-label">Drop-off Location <span>*</span></label>
                 <input className="bk-input" placeholder="e.g. East Legon, Accra" value={form.dropoffLocation} onChange={e => set('dropoffLocation', e.target.value)} />
               </div>
-
               <div className="bk-section-divider" />
-              <div className="bk-section-title" style={{ fontSize:16, marginBottom:16 }}>🚚 Delivery Type <span style={{ fontSize:12, color:'rgba(240,244,255,0.3)', fontFamily:"'Inter',sans-serif", fontWeight:400 }}>— Select one</span></div>
+              <div className="bk-section-title" style={{ fontSize:16, marginBottom:16 }}>🚚 Delivery Type</div>
               <div className="bk-type-grid" style={{ marginBottom:18 }}>
                 {DELIVERY_TYPES.map(t => (
                   <div key={t.value} className={`bk-type-card${form.deliveryType === t.value ? ' selected' : ''}`} onClick={() => set('deliveryType', t.value)}>
                     <div className="bk-type-icon">{t.icon}</div>
                     <div className="bk-type-name">{t.label}</div>
                     <div className="bk-type-desc">{t.desc}</div>
-                    <div className="bk-type-fee">GHS {t.fee}</div>
+                    <div className="bk-type-fee">GHS {FEES[t.value]}</div>
                     <div className="bk-type-eta">⏱ {t.eta}</div>
                   </div>
                 ))}
               </div>
-
               {form.deliveryType === 'scheduled' && (
                 <div className="bk-row" style={{ marginBottom:16 }}>
                   <div className="bk-field">
@@ -326,7 +313,6 @@ export default function BookDelivery() {
                   </div>
                 </div>
               )}
-
               <div className="bk-section-divider" />
               <div className="bk-section-title" style={{ fontSize:16, marginBottom:16 }}>📋 Package Details</div>
               <div className="bk-field">
@@ -351,20 +337,16 @@ export default function BookDelivery() {
           {step === 3 && (
             <div className="bk-card">
               <div className="bk-section-title">✅ Review & Confirm</div>
-
-              {/* Fee Box */}
               <div className="bk-fee-box">
-                <div className="bk-fee-left">
+                <div>
                   <div className="bk-fee-label">Delivery Fee</div>
                   <div className="bk-fee-amount">GHS {deliveryFee}</div>
                 </div>
-                <div className="bk-fee-right">
+                <div>
                   <div className="bk-fee-type">{selectedType?.label}</div>
                   <div className="bk-fee-eta">⏱ {selectedType?.eta}</div>
                 </div>
               </div>
-
-              {/* Summary */}
               <div className="bk-subsection">Order Summary</div>
               <div className="bk-summary">
                 <div className="bk-summary-row"><span className="bk-summary-label">Sender</span><span className="bk-summary-value">{form.customerName} · {form.customerPhone}</span></div>
@@ -379,8 +361,6 @@ export default function BookDelivery() {
                   <div className="bk-summary-row"><span className="bk-summary-label">Notes</span><span className="bk-summary-value">{form.additionalNotes}</span></div>
                 )}
               </div>
-
-              {/* Payment */}
               <div className="bk-subsection">Payment Method</div>
               <div className="bk-payment-row" style={{ marginBottom:20 }}>
                 <div className={`bk-payment-card${form.paymentMethod === 'cash' ? ' selected' : ''}`} onClick={() => set('paymentMethod', 'cash')}>
@@ -394,8 +374,6 @@ export default function BookDelivery() {
                   <div className="bk-payment-sub">MoMo · Telecel · AirtelTigo</div>
                 </div>
               </div>
-
-              {/* Trust */}
               <div className="bk-trust">
                 <div className="bk-trust-item">🔒 Secure booking</div>
                 <div className="bk-trust-item">📦 Package insured</div>
