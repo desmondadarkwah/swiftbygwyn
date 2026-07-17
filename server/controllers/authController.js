@@ -32,3 +32,19 @@ export const loginAdmin = async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 }
+
+// PUT /api/auth/change-password — admin only
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    const admin = await Admin.findById(req.admin.id)
+    if (!admin) return res.status(404).json({ error: 'Admin not found.' })
+    if (!(await admin.matchPassword(currentPassword)))
+      return res.status(400).json({ error: 'Current password is incorrect.' })
+    admin.password = newPassword
+    await admin.save()
+    res.json({ success: true, message: 'Password changed successfully.' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}

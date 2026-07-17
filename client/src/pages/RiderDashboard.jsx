@@ -10,13 +10,13 @@ const STATUS_LABELS = {
 }
 
 const STATUS_COLORS = {
-  received:    { bg:'rgba(99,102,241,0.15)',  color:'#a5b4fc' },
-  assigned:    { bg:'rgba(249,115,22,0.15)',  color:'#fdba74' },
-  accepted:    { bg:'rgba(168,85,247,0.15)',  color:'#d8b4fe' },
-  'picked-up': { bg:'rgba(234,179,8,0.15)',   color:'#fde047' },
-  'in-transit':{ bg:'rgba(59,130,246,0.15)',  color:'#93c5fd' },
-  delivered:   { bg:'rgba(34,197,94,0.15)',   color:'#86efac' },
-  cancelled:   { bg:'rgba(239,68,68,0.15)',   color:'#fca5a5' },
+  received: { bg: 'rgba(99,102,241,0.15)', color: '#a5b4fc' },
+  assigned: { bg: 'rgba(249,115,22,0.15)', color: '#fdba74' },
+  accepted: { bg: 'rgba(168,85,247,0.15)', color: '#d8b4fe' },
+  'picked-up': { bg: 'rgba(234,179,8,0.15)', color: '#fde047' },
+  'in-transit': { bg: 'rgba(59,130,246,0.15)', color: '#93c5fd' },
+  delivered: { bg: 'rgba(34,197,94,0.15)', color: '#86efac' },
+  cancelled: { bg: 'rgba(239,68,68,0.15)', color: '#fca5a5' },
 }
 
 const DELIVERY_TYPE_LABELS = {
@@ -25,21 +25,21 @@ const DELIVERY_TYPE_LABELS = {
 }
 
 const NEXT_ACTION = {
-  assigned:    { label:'✅ Accept Delivery',      next:'accepted',    btn:'rd-btn-orange' },
-  accepted:    { label:'📦 Mark as Picked Up',    next:'picked-up',   btn:'rd-btn-orange' },
-  'picked-up': { label:'🚀 Mark as In Transit',   next:'in-transit',  btn:'rd-btn-blue' },
+  assigned: { label: '✅ Accept Delivery', next: 'accepted', btn: 'rd-btn-orange' },
+  accepted: { label: '📦 Mark as Picked Up', next: 'picked-up', btn: 'rd-btn-orange' },
+  'picked-up': { label: '🚀 Mark as In Transit', next: 'in-transit', btn: 'rd-btn-blue' },
 }
 
 export default function RiderDashboard() {
   const { rider, logout } = useRiderAuth()
   const navigate = useNavigate()
-  const [orders, setOrders]         = useState([])
-  const [riderInfo, setRiderInfo]   = useState(null)
-  const [loading, setLoading]       = useState(true)
+  const [orders, setOrders] = useState([])
+  const [riderInfo, setRiderInfo] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [activeTab, setActiveTab]   = useState('active')
+  const [activeTab, setActiveTab] = useState('active')
   const [proofPhoto, setProofPhoto] = useState(null)
-  const [proofName, setProofName]   = useState('')
+  const [proofName, setProofName] = useState('')
   const [proofLoading, setProofLoading] = useState(false)
   const [proofError, setProofError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
@@ -54,7 +54,7 @@ export default function RiderDashboard() {
     try {
       const [o, r] = await Promise.all([getRiderOrders(), getRiderMe()])
       setOrders(o); setRiderInfo(r)
-    } catch(e) { console.error(e) }
+    } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
@@ -64,7 +64,7 @@ export default function RiderDashboard() {
       await updateOrderStatus(orderId, status)
       await loadAll()
       setSelectedOrder(prev => prev ? { ...prev, status } : null)
-    } catch(e) { alert(e.response?.data?.error || 'Failed to update status') }
+    } catch (e) { alert(e.response?.data?.error || 'Failed to update status') }
     finally { setActionLoading(false) }
   }
 
@@ -78,15 +78,15 @@ export default function RiderDashboard() {
       await uploadProof(selectedOrder._id, fd)
       await loadAll()
       setSelectedOrder(null); setProofPhoto(null); setProofName('')
-    } catch(e) { setProofError(e.response?.data?.error || 'Failed to submit proof. Try again.') }
+    } catch (e) { setProofError(e.response?.data?.error || 'Failed to submit proof. Try again.') }
     finally { setProofLoading(false) }
   }
 
   const handleLogout = () => { logout(); navigate('/rider/login') }
 
-  const activeOrders    = orders.filter(o => !['delivered','cancelled'].includes(o.status))
+  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status))
   const completedOrders = orders.filter(o => o.status === 'delivered')
-  const displayOrders   = activeTab === 'active' ? activeOrders : completedOrders
+  const displayOrders = activeTab === 'active' ? activeOrders : completedOrders
 
   const urgentOrders = activeOrders.filter(o => o.deliveryType === 'express')
 
@@ -284,7 +284,7 @@ export default function RiderDashboard() {
                       <div className="rd-order-id">{order.orderID}</div>
                       <div className="rd-order-type">{DELIVERY_TYPE_LABELS[order.deliveryType] || order.deliveryType}</div>
                     </div>
-                    <span className="rd-status-badge" style={{ background:sc.bg, color:sc.color }}>{STATUS_LABELS[order.status]}</span>
+                    <span className="rd-status-badge" style={{ background: sc.bg, color: sc.color }}>{STATUS_LABELS[order.status]}</span>
                   </div>
                   <div className="rd-route">
                     <div className="rd-route-item">
@@ -299,7 +299,7 @@ export default function RiderDashboard() {
                   <div className="rd-order-footer">
                     <div className="rd-order-meta">
                       <div className="rd-meta-item">Recipient: <span>{order.recipientName}</span></div>
-                      <div className="rd-meta-item">Fee: <span style={{ color:'#f97316' }}>GHS {order.deliveryFee}</span></div>
+                      <div className="rd-meta-item">Fee: <span style={{ color: '#f97316' }}>GHS {order.deliveryFee}</span></div>
                     </div>
                     {nextAction && (
                       <button className="rd-quick-action" onClick={e => { e.stopPropagation(); handleStatusUpdate(order._id, nextAction.next) }}>
@@ -330,7 +330,7 @@ export default function RiderDashboard() {
               {/* Route */}
               <div className="rd-section">
                 <div className="rd-section-title">Route</div>
-                <div className="rd-info-grid" style={{ marginBottom:10 }}>
+                <div className="rd-info-grid" style={{ marginBottom: 10 }}>
                   <div className="rd-info-item"><div className="rd-info-label">📍 Pickup</div><div className="rd-info-value">{selectedOrder.pickupLocation}</div></div>
                   <div className="rd-info-item"><div className="rd-info-label">🎯 Drop-off</div><div className="rd-info-value">{selectedOrder.dropoffLocation}</div></div>
                 </div>
@@ -342,7 +342,7 @@ export default function RiderDashboard() {
               {/* Contacts */}
               <div className="rd-section">
                 <div className="rd-section-title">Contacts</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div className="rd-contact-card">
                     <div>
                       <div className="rd-contact-label">Sender</div>
@@ -365,12 +365,12 @@ export default function RiderDashboard() {
               {/* Package */}
               <div className="rd-section">
                 <div className="rd-section-title">Package Info</div>
-                <div className="rd-info-item" style={{ marginBottom:8 }}>
+                <div className="rd-info-item" style={{ marginBottom: 8 }}>
                   <div className="rd-info-label">What's being delivered</div>
                   <div className="rd-info-value">{selectedOrder.packageDescription}</div>
                 </div>
                 {selectedOrder.additionalNotes && (
-                  <div className="rd-info-item" style={{ marginBottom:8 }}>
+                  <div className="rd-info-item" style={{ marginBottom: 8 }}>
                     <div className="rd-info-label">Special Instructions</div>
                     <div className="rd-info-value">{selectedOrder.additionalNotes}</div>
                   </div>
@@ -378,15 +378,21 @@ export default function RiderDashboard() {
                 <div className="rd-info-grid">
                   <div className="rd-info-item">
                     <div className="rd-info-label">Payment Method</div>
-                    <div className="rd-info-value" style={{ textTransform:'capitalize' }}>{selectedOrder.paymentMethod?.replace('-',' ')}</div>
+                    <div className="rd-info-value" style={{ textTransform: 'capitalize' }}>{selectedOrder.paymentMethod?.replace('-', ' ')}</div>
                   </div>
                   <div className="rd-info-item">
                     <div className="rd-info-label">Delivery Fee</div>
-                    <div className="rd-info-value" style={{ color:'#f97316' }}>GHS {selectedOrder.deliveryFee}</div>
+                    <div className="rd-info-value" style={{ color: '#f97316' }}>GHS {selectedOrder.deliveryFee}</div>
                   </div>
                 </div>
+                {selectedOrder.deliveryType === 'scheduled' && selectedOrder.scheduledDate && (
+                  <div className="rd-info-item" style={{ gridColumn: '1/-1', marginTop: 8 }}>
+                    <div className="rd-info-label">📅 Scheduled For</div>
+                    <div className="rd-info-value" style={{ color: '#f97316' }}>{selectedOrder.scheduledDate} at {selectedOrder.scheduledTime}</div>
+                  </div>
+                )}
                 {selectedOrder.packageImage && (
-                  <img src={selectedOrder.packageImage} alt="Package" style={{ width:'100%', maxHeight:180, objectFit:'cover', borderRadius:10, marginTop:8 }} />
+                  <img src={selectedOrder.packageImage} alt="Package" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10, marginTop: 8 }} />
                 )}
               </div>
 
@@ -416,7 +422,7 @@ export default function RiderDashboard() {
                   />
                   <div className={`rd-file-zone${proofPhoto ? ' has-file' : ''}`} onClick={() => document.getElementById('proof-img').click()}>
                     {proofPhoto ? `✅ ${proofPhoto.name}` : '📷 Upload delivery photo (optional but recommended)'}
-                    <input id="proof-img" type="file" accept="image/*" style={{ display:'none' }} onChange={e => setProofPhoto(e.target.files[0])} />
+                    <input id="proof-img" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setProofPhoto(e.target.files[0])} />
                   </div>
                   {proofError && <div className="rd-proof-error">⚠️ {proofError}</div>}
                   <button className="rd-btn rd-btn-green" onClick={handleProofSubmit} disabled={proofLoading}>

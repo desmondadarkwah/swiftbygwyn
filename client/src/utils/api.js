@@ -133,4 +133,20 @@ export const deleteRider = async (id) => {
   return data
 }
 
+// ─── SETTINGS ─────────────────────────────────────────
+export const fetchSettings = async () => {
+  const { data } = await axiosInstance.get('/api/settings')
+  return data.data
+}
+
+export const updateSettings = async (payload) => {
+  const { data } = await axiosInstance.put('/api/settings', payload)
+  return data.data
+}
+
+// ─── ADMIN PASSWORD ───────────────────────────────────
+export const changeAdminPassword = async (payload) => {
+  const { data } = await axiosInstance.put('/api/auth/change-password', payload)
+  return data
+}
 

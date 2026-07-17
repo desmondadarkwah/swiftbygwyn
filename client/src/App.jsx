@@ -6,6 +6,7 @@ import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import RiderLogin from './pages/RiderLogin'
 import RiderDashboard from './pages/RiderDashboard'
+import NotFound from './pages/NotFound'
 import AdminProtectedRoute from './components/AdminProtectedRoute'
 import RiderProtectedRoute from './components/RiderProtectedRoute'
 
@@ -28,9 +29,9 @@ function App() {
           <RiderDashboard />
         </RiderProtectedRoute>
       } />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
 
 export default App
-

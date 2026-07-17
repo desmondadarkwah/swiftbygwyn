@@ -1,12 +1,13 @@
 import express from 'express'
 import { protect, protectRider } from '../middleware/authMiddleware.js'
 import { upload } from '../middleware/uploadMiddleware.js'
-import { setupAdmin, loginAdmin } from '../controllers/authController.js'
+import { setupAdmin, loginAdmin, changePassword } from '../controllers/authController.js'
 import { createRider, loginRider, getAllRiders, getRiderMe, updateRiderStatus, deleteRider } from '../controllers/riderController.js'
 import {
   createOrder, getAllOrders, trackOrder, getRiderOrders,
   assignRider, updateOrderStatus, uploadProof, getStats
 } from '../controllers/orderController.js'
+import { getSettings, updateSettings } from '../controllers/settingsController.js'
 
 const router = express.Router()
 
@@ -16,6 +17,13 @@ router.get('/health', (req, res) => res.json({ message: 'SwiftByGwyn server is r
 // ─── ADMIN AUTH ───────────────────────────────────────
 router.post('/auth/setup', setupAdmin)
 router.post('/auth/login', loginAdmin)
+
+// ─── SETTINGS ─────────────────────────────────────────
+router.get('/settings', getSettings)
+router.put('/settings', protect, updateSettings)
+
+// ─── CHANGE PASSWORD ──────────────────────────────────
+router.put('/auth/change-password', protect, changePassword)
 
 // ─── RIDERS ───────────────────────────────────────────
 router.post('/riders/login', loginRider)
