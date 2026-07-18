@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createOrder, fetchSettings } from '../utils/api'
+import LocationPicker from '../components/LocationPicker'
 
 const DELIVERY_TYPES = [
   { value: 'standard',  label: 'Standard Delivery', icon: '🚶', desc: 'Within the day',    eta: '2-4 hours' },
@@ -8,6 +9,8 @@ const DELIVERY_TYPES = [
   { value: 'express',   label: 'Express / Urgent',   icon: '🚀', desc: 'Fastest option',    eta: '30-60 mins' },
   { value: 'scheduled', label: 'Scheduled',           icon: '📅', desc: 'Pick date & time', eta: 'Your chosen time' },
 ]
+
+const RATE_PER_KM = 2
 
 export default function BookDelivery() {
   const navigate = useNavigate()
@@ -17,6 +20,9 @@ export default function BookDelivery() {
   const [success, setSuccess]     = useState(null)
   const [packageImage, setPackageImage] = useState(null)
   const [settings, setSettings]   = useState(null)
+  const [pickupCoords, setPickupCoords]   = useState(null)
+  const [dropoffCoords, setDropoffCoords] = useState(null)
+  const [distance, setDistance]   = useState(0)
 
   const [form, setForm] = useState({
     customerName: '', customerPhone: '',
@@ -32,7 +38,7 @@ export default function BookDelivery() {
     fetchSettings().then(setSettings).catch(console.error)
   }, [])
 
-  const FEES = {
+  const BASE_FEES = {
     standard:   settings?.standardFee  || 30,
     'same-day': settings?.sameDayFee   || 50,
     express:    settings?.expressFee   || 80,
@@ -41,7 +47,9 @@ export default function BookDelivery() {
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
   const selectedType = DELIVERY_TYPES.find(t => t.value === form.deliveryType)
-  const deliveryFee  = FEES[form.deliveryType]
+  const deliveryFee  = distance > 0
+    ? Math.round(BASE_FEES[form.deliveryType] + (distance * RATE_PER_KM))
+    : BASE_FEES[form.deliveryType]
 
   const validatePhone = (phone) => /^[0-9+\s\-]{10,15}$/.test(phone.trim())
 
@@ -54,8 +62,8 @@ export default function BookDelivery() {
       if (!validatePhone(form.recipientPhone)) { setError('Please enter a valid recipient phone number.'); return }
     }
     if (step === 2) {
-      if (!form.pickupLocation.trim()) { setError('Please enter the pickup location.'); return }
-      if (!form.dropoffLocation.trim()) { setError('Please enter the drop-off location.'); return }
+      if (!form.pickupLocation.trim()) { setError('Please pin your pickup location on the map.'); return }
+      if (!form.dropoffLocation.trim()) { setError('Please pin your drop-off location on the map.'); return }
       if (form.pickupLocation.trim().toLowerCase() === form.dropoffLocation.trim().toLowerCase()) { setError('Pickup and drop-off locations cannot be the same.'); return }
       if (!form.packageDescription.trim()) { setError('Please describe what is being delivered.'); return }
       if (form.deliveryType === 'scheduled') {
@@ -75,6 +83,15 @@ export default function BookDelivery() {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => fd.append(k, v))
       fd.append('deliveryFee', deliveryFee)
+      fd.append('distance', distance)
+      if (pickupCoords) {
+        fd.append('pickupCoords[lat]', pickupCoords.lat)
+        fd.append('pickupCoords[lng]', pickupCoords.lng)
+      }
+      if (dropoffCoords) {
+        fd.append('dropoffCoords[lat]', dropoffCoords.lat)
+        fd.append('dropoffCoords[lng]', dropoffCoords.lng)
+      }
       if (packageImage) fd.append('packageImage', packageImage)
       const order = await createOrder(fd)
       setSuccess(order)
@@ -123,6 +140,7 @@ export default function BookDelivery() {
               <div className="suc-detail-row"><span className="suc-detail-label">To</span><span className="suc-detail-value">{form.dropoffLocation}</span></div>
               <div className="suc-detail-row"><span className="suc-detail-label">Recipient</span><span className="suc-detail-value">{form.recipientName} · {form.recipientPhone}</span></div>
               <div className="suc-detail-row"><span className="suc-detail-label">Type</span><span className="suc-detail-value">{selectedType?.label}</span></div>
+              {distance > 0 && <div className="suc-detail-row"><span className="suc-detail-label">Distance</span><span className="suc-detail-value">{distance} km</span></div>}
               <div className="suc-detail-row"><span className="suc-detail-label">Fee</span><span className="suc-detail-value" style={{ color:'#f97316' }}>GHS {deliveryFee}</span></div>
               <div className="suc-detail-row"><span className="suc-detail-label">Payment</span><span className="suc-detail-value" style={{ textTransform:'capitalize' }}>{form.paymentMethod.replace('-',' ')}</span></div>
               {form.deliveryType === 'scheduled' && (
@@ -185,6 +203,7 @@ export default function BookDelivery() {
         .bk-type-desc { font-size: 11px; color: rgba(240,244,255,0.35); margin-bottom: 6px; }
         .bk-type-fee { font-size: 14px; font-weight: 700; color: #f97316; }
         .bk-type-eta { font-size: 10px; color: rgba(240,244,255,0.3); margin-top: 2px; }
+        .bk-type-note { font-size: 10px; color: rgba(249,115,22,0.5); margin-top: 2px; }
         .bk-file-zone { width: 100%; background: rgba(255,255,255,0.03); border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; color: rgba(240,244,255,0.3); font-size: 13px; transition: all 0.2s; }
         .bk-file-zone:hover { border-color: rgba(249,115,22,0.3); }
         .bk-file-zone.has-file { border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.04); }
@@ -280,14 +299,19 @@ export default function BookDelivery() {
           {step === 2 && (
             <div className="bk-card">
               <div className="bk-section-title">📍 Locations</div>
-              <div className="bk-field">
-                <label className="bk-label">Pickup Location <span>*</span></label>
-                <input className="bk-input" placeholder="e.g. Madina Estate, Accra" value={form.pickupLocation} onChange={e => set('pickupLocation', e.target.value)} />
-              </div>
-              <div className="bk-field">
-                <label className="bk-label">Drop-off Location <span>*</span></label>
-                <input className="bk-input" placeholder="e.g. East Legon, Accra" value={form.dropoffLocation} onChange={e => set('dropoffLocation', e.target.value)} />
-              </div>
+              <LocationPicker
+                onPickupChange={(name, coords) => {
+                  set('pickupLocation', name)
+                  setPickupCoords(coords)
+                }}
+                onDropoffChange={(name, coords) => {
+                  set('dropoffLocation', name)
+                  setDropoffCoords(coords)
+                }}
+                onDistanceChange={(km) => setDistance(km)}
+              />
+              <div style={{ height:16 }} />
+
               <div className="bk-section-divider" />
               <div className="bk-section-title" style={{ fontSize:16, marginBottom:16 }}>🚚 Delivery Type</div>
               <div className="bk-type-grid" style={{ marginBottom:18 }}>
@@ -296,11 +320,17 @@ export default function BookDelivery() {
                     <div className="bk-type-icon">{t.icon}</div>
                     <div className="bk-type-name">{t.label}</div>
                     <div className="bk-type-desc">{t.desc}</div>
-                    <div className="bk-type-fee">GHS {FEES[t.value]}</div>
+                    <div className="bk-type-fee">
+                      GHS {distance > 0
+                        ? Math.round(BASE_FEES[t.value] + (distance * RATE_PER_KM))
+                        : BASE_FEES[t.value]}
+                    </div>
                     <div className="bk-type-eta">⏱ {t.eta}</div>
+                    {distance > 0 && <div className="bk-type-note">Base + {distance}km × GHS{RATE_PER_KM}</div>}
                   </div>
                 ))}
               </div>
+
               {form.deliveryType === 'scheduled' && (
                 <div className="bk-row" style={{ marginBottom:16 }}>
                   <div className="bk-field">
@@ -313,6 +343,7 @@ export default function BookDelivery() {
                   </div>
                 </div>
               )}
+
               <div className="bk-section-divider" />
               <div className="bk-section-title" style={{ fontSize:16, marginBottom:16 }}>📋 Package Details</div>
               <div className="bk-field">
@@ -339,20 +370,23 @@ export default function BookDelivery() {
               <div className="bk-section-title">✅ Review & Confirm</div>
               <div className="bk-fee-box">
                 <div>
-                  <div className="bk-fee-label">Delivery Fee</div>
+                  <div className="bk-fee-label">Delivery Fee {distance > 0 && `· ${distance} km`}</div>
                   <div className="bk-fee-amount">GHS {deliveryFee}</div>
+                  {distance > 0 && <div style={{ fontSize:11, color:'rgba(240,244,255,0.3)', marginTop:2 }}>Base GHS {BASE_FEES[form.deliveryType]} + {distance}km × GHS{RATE_PER_KM}/km</div>}
                 </div>
                 <div>
                   <div className="bk-fee-type">{selectedType?.label}</div>
                   <div className="bk-fee-eta">⏱ {selectedType?.eta}</div>
                 </div>
               </div>
+
               <div className="bk-subsection">Order Summary</div>
               <div className="bk-summary">
                 <div className="bk-summary-row"><span className="bk-summary-label">Sender</span><span className="bk-summary-value">{form.customerName} · {form.customerPhone}</span></div>
                 <div className="bk-summary-row"><span className="bk-summary-label">Recipient</span><span className="bk-summary-value">{form.recipientName} · {form.recipientPhone}</span></div>
                 <div className="bk-summary-row"><span className="bk-summary-label">Pickup</span><span className="bk-summary-value">{form.pickupLocation}</span></div>
                 <div className="bk-summary-row"><span className="bk-summary-label">Drop-off</span><span className="bk-summary-value">{form.dropoffLocation}</span></div>
+                {distance > 0 && <div className="bk-summary-row"><span className="bk-summary-label">Distance</span><span className="bk-summary-value" style={{ color:'#f97316' }}>{distance} km</span></div>}
                 <div className="bk-summary-row"><span className="bk-summary-label">Package</span><span className="bk-summary-value">{form.packageDescription}</span></div>
                 {form.deliveryType === 'scheduled' && (
                   <div className="bk-summary-row"><span className="bk-summary-label">Scheduled</span><span className="bk-summary-value">{form.scheduledDate} at {form.scheduledTime}</span></div>
@@ -361,6 +395,7 @@ export default function BookDelivery() {
                   <div className="bk-summary-row"><span className="bk-summary-label">Notes</span><span className="bk-summary-value">{form.additionalNotes}</span></div>
                 )}
               </div>
+
               <div className="bk-subsection">Payment Method</div>
               <div className="bk-payment-row" style={{ marginBottom:20 }}>
                 <div className={`bk-payment-card${form.paymentMethod === 'cash' ? ' selected' : ''}`} onClick={() => set('paymentMethod', 'cash')}>
