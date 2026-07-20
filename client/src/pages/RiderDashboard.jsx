@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRiderAuth } from '../context/RiderAuthContext'
 import { getRiderOrders, updateOrderStatus, uploadProof, getRiderMe } from '../utils/api'
+import RiderMap from '../components/RiderMap'
 
 const STATUS_LABELS = {
   received: 'Order Received', assigned: 'Assigned to You',
@@ -87,7 +88,6 @@ export default function RiderDashboard() {
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status))
   const completedOrders = orders.filter(o => o.status === 'delivered')
   const displayOrders = activeTab === 'active' ? activeOrders : completedOrders
-
   const urgentOrders = activeOrders.filter(o => o.deliveryType === 'express')
 
   return (
@@ -96,8 +96,6 @@ export default function RiderDashboard() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         .rd-root { min-height: 100vh; background: #0b0f1a; font-family: 'Inter', sans-serif; color: #f0f4ff; }
-
-        /* TOPBAR */
         .rd-topbar { background: rgba(11,15,26,0.95); border-bottom: 1px solid rgba(255,255,255,0.07); padding: 0 20px; height: 62px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
         .rd-topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 17px; color: #fff; display: flex; align-items: center; gap: 8px; }
         .rd-topbar-logo-icon { width: 32px; height: 32px; background: #f97316; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
@@ -108,36 +106,25 @@ export default function RiderDashboard() {
         .rd-rider-name { font-size: 12px; font-weight: 500; color: rgba(240,244,255,0.7); }
         .rd-logout { padding: 7px 14px; background: transparent; color: rgba(240,244,255,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
         .rd-logout:hover { border-color: #f97316; color: #f97316; }
-
         .rd-main { max-width: 680px; margin: 0 auto; padding: 24px 16px 80px; }
-
-        /* URGENT BANNER */
         .rd-urgent { background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.06)); border: 1px solid rgba(239,68,68,0.25); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
         .rd-urgent-icon { font-size: 22px; flex-shrink: 0; }
         .rd-urgent-text { font-size: 13px; font-weight: 600; color: #fca5a5; }
         .rd-urgent-sub { font-size: 11px; color: rgba(240,244,255,0.35); margin-top: 2px; }
-
-        /* STATS */
         .rd-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
         .rd-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 14px 12px; text-align: center; }
         .rd-stat-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; color: #f97316; line-height: 1; margin-bottom: 4px; }
         .rd-stat-label { font-size: 10px; color: rgba(240,244,255,0.3); letter-spacing: 0.04em; text-transform: uppercase; }
-
-        /* TABS */
         .rd-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
         .rd-tab { padding: 8px 18px; border-radius: 100px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(240,244,255,0.4); transition: all 0.2s; }
         .rd-tab.active { background: #f97316; color: #fff; border-color: #f97316; }
-
-        /* ORDER CARDS */
         .rd-order-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
         .rd-order-card:hover { border-color: rgba(249,115,22,0.3); background: rgba(255,255,255,0.04); }
         .rd-order-card.urgent { border-color: rgba(239,68,68,0.3); }
         .rd-order-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
-        .rd-order-id-wrap {}
         .rd-order-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: #f97316; line-height: 1; }
-        .rd-order-type { font-size: 10px; color: rgba(240,244,255,0.3); margin-top: 3px; letter-spacing: 0.04em; }
+        .rd-order-type { font-size: 10px; color: rgba(240,244,255,0.3); margin-top: 3px; }
         .rd-status-badge { padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
-
         .rd-route { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 10px; }
         .rd-route-item { display: flex; align-items: flex-start; gap: 10px; }
         .rd-route-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
@@ -145,19 +132,15 @@ export default function RiderDashboard() {
         .rd-route-dot.dropoff { background: #22c55e; }
         .rd-route-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 1px; text-transform: uppercase; letter-spacing: 0.04em; }
         .rd-route-text { font-size: 13px; color: rgba(240,244,255,0.75); font-weight: 500; }
-
         .rd-order-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
         .rd-order-meta { display: flex; gap: 12px; flex-wrap: wrap; }
         .rd-meta-item { font-size: 11px; color: rgba(240,244,255,0.35); }
         .rd-meta-item span { color: rgba(240,244,255,0.65); font-weight: 500; }
         .rd-quick-action { padding: 7px 14px; background: #f97316; color: #fff; border: none; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
         .rd-quick-action:hover { opacity: 0.88; }
-
         .rd-empty { padding: 56px 0; text-align: center; color: rgba(240,244,255,0.25); }
         .rd-empty-icon { font-size: 40px; margin-bottom: 12px; }
         .rd-empty-text { font-size: 14px; }
-
-        /* MODAL */
         .rd-modal-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: flex; align-items: flex-end; justify-content: center; }
         .rd-modal { background: #0f1525; border: 1px solid rgba(255,255,255,0.1); border-top: 2px solid #f97316; border-radius: 20px 20px 0 0; width: 100%; max-width: 620px; max-height: 92vh; overflow-y: auto; padding-bottom: 40px; }
         .rd-modal-head { padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #0f1525; z-index: 5; }
@@ -165,25 +148,20 @@ export default function RiderDashboard() {
         .rd-modal-status { font-size: 11px; color: rgba(240,244,255,0.35); margin-top: 2px; }
         .rd-modal-close { background: rgba(255,255,255,0.06); border: none; color: rgba(240,244,255,0.5); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
         .rd-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-
         .rd-section { }
         .rd-section-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(240,244,255,0.25); margin-bottom: 10px; }
         .rd-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .rd-info-item { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px; }
         .rd-info-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
         .rd-info-value { font-size: 13px; color: #f0f4ff; font-weight: 500; }
-
         .rd-contact-card { background: rgba(249,115,22,0.05); border: 1px solid rgba(249,115,22,0.15); border-radius: 12px; padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .rd-contact-label { font-size: 10px; color: rgba(240,244,255,0.3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
         .rd-contact-name { font-size: 14px; font-weight: 600; color: #fff; }
         .rd-contact-phone { font-size: 12px; color: #f97316; margin-top: 2px; }
         .rd-call-btn { padding: 8px 16px; background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.3); border-radius: 8px; color: #f97316; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
         .rd-call-btn:hover { background: #f97316; color: #fff; }
-
         .rd-maps-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; background: rgba(59,130,246,0.12); color: #93c5fd; border: 1px solid rgba(59,130,246,0.25); border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
         .rd-maps-btn:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
-
-        /* ACTION BUTTONS */
         .rd-action-section { background: rgba(249,115,22,0.05); border: 1px solid rgba(249,115,22,0.15); border-radius: 14px; padding: 18px; }
         .rd-action-title { font-size: 13px; font-weight: 600; color: rgba(240,244,255,0.5); margin-bottom: 12px; }
         .rd-btn { padding: 13px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: all 0.2s; width: 100%; text-align: center; }
@@ -194,8 +172,6 @@ export default function RiderDashboard() {
         .rd-btn-blue:hover:not(:disabled) { background: #3b82f6; color: #fff; }
         .rd-btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; }
         .rd-btn-green:hover:not(:disabled) { opacity: 0.9; }
-
-        /* PROOF */
         .rd-proof-section { background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.2); border-radius: 14px; padding: 18px; }
         .rd-proof-title { font-size: 14px; font-weight: 600; color: #86efac; margin-bottom: 14px; }
         .rd-proof-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #fff; outline: none; font-family: 'Inter', sans-serif; margin-bottom: 10px; transition: border-color 0.2s; }
@@ -204,11 +180,12 @@ export default function RiderDashboard() {
         .rd-file-zone { width: 100%; padding: 16px; background: rgba(255,255,255,0.03); border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 10px; color: rgba(240,244,255,0.35); font-size: 13px; cursor: pointer; text-align: center; margin-bottom: 12px; transition: all 0.2s; }
         .rd-file-zone.has-file { border-color: rgba(34,197,94,0.3); color: #86efac; background: rgba(34,197,94,0.04); }
         .rd-proof-error { font-size: 12px; color: #fca5a5; padding: 10px 12px; background: rgba(239,68,68,0.1); border-radius: 8px; margin-bottom: 10px; }
-
         .rd-delivered-box { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 14px; padding: 20px; text-align: center; }
         .rd-delivered-icon { font-size: 36px; margin-bottom: 8px; }
         .rd-delivered-text { font-size: 15px; font-weight: 600; color: #86efac; }
         .rd-delivered-sub { font-size: 12px; color: rgba(240,244,255,0.35); margin-top: 4px; }
+        .mapboxgl-popup-content { background: #0f1525 !important; color: #f0f4ff !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 10px !important; padding: 10px 14px !important; }
+        .mapboxgl-popup-tip { border-top-color: #0f1525 !important; }
       `}</style>
 
       <div className="rd-root">
@@ -227,7 +204,6 @@ export default function RiderDashboard() {
         </nav>
 
         <main className="rd-main">
-          {/* Urgent Alert */}
           {urgentOrders.length > 0 && (
             <div className="rd-urgent">
               <div className="rd-urgent-icon">🚨</div>
@@ -238,23 +214,12 @@ export default function RiderDashboard() {
             </div>
           )}
 
-          {/* Stats */}
           <div className="rd-stats">
-            <div className="rd-stat">
-              <div className="rd-stat-num">{activeOrders.length}</div>
-              <div className="rd-stat-label">Active</div>
-            </div>
-            <div className="rd-stat">
-              <div className="rd-stat-num">{completedOrders.length}</div>
-              <div className="rd-stat-label">Today</div>
-            </div>
-            <div className="rd-stat">
-              <div className="rd-stat-num">{riderInfo?.totalDeliveries || 0}</div>
-              <div className="rd-stat-label">All Time</div>
-            </div>
+            <div className="rd-stat"><div className="rd-stat-num">{activeOrders.length}</div><div className="rd-stat-label">Active</div></div>
+            <div className="rd-stat"><div className="rd-stat-num">{completedOrders.length}</div><div className="rd-stat-label">Today</div></div>
+            <div className="rd-stat"><div className="rd-stat-num">{riderInfo?.totalDeliveries || 0}</div><div className="rd-stat-label">All Time</div></div>
           </div>
 
-          {/* Tabs */}
           <div className="rd-tabs">
             <button className={`rd-tab${activeTab === 'active' ? ' active' : ''}`} onClick={() => setActiveTab('active')}>
               Active {activeOrders.length > 0 && `(${activeOrders.length})`}
@@ -264,7 +229,6 @@ export default function RiderDashboard() {
             </button>
           </div>
 
-          {/* Orders */}
           {loading ? (
             <div className="rd-empty"><div className="rd-empty-icon">⏳</div><div className="rd-empty-text">Loading your deliveries...</div></div>
           ) : displayOrders.length === 0 ? (
@@ -280,7 +244,7 @@ export default function RiderDashboard() {
               return (
                 <div key={order._id} className={`rd-order-card${isUrgent ? ' urgent' : ''}`} onClick={() => setSelectedOrder(order)}>
                   <div className="rd-order-head">
-                    <div className="rd-order-id-wrap">
+                    <div>
                       <div className="rd-order-id">{order.orderID}</div>
                       <div className="rd-order-type">{DELIVERY_TYPE_LABELS[order.deliveryType] || order.deliveryType}</div>
                     </div>
@@ -314,7 +278,6 @@ export default function RiderDashboard() {
         </main>
       </div>
 
-      {/* ORDER DETAIL MODAL */}
       {selectedOrder && (
         <div className="rd-modal-backdrop" onClick={e => e.target === e.currentTarget && setSelectedOrder(null)}>
           <div className="rd-modal">
@@ -327,19 +290,39 @@ export default function RiderDashboard() {
             </div>
 
             <div className="rd-modal-body">
-              {/* Route */}
+
+              {/* ROUTE + MAP */}
               <div className="rd-section">
-                <div className="rd-section-title">Route</div>
-                <div className="rd-info-grid" style={{ marginBottom: 10 }}>
-                  <div className="rd-info-item"><div className="rd-info-label">📍 Pickup</div><div className="rd-info-value">{selectedOrder.pickupLocation}</div></div>
-                  <div className="rd-info-item"><div className="rd-info-label">🎯 Drop-off</div><div className="rd-info-value">{selectedOrder.dropoffLocation}</div></div>
+                <div className="rd-section-title">Route & Navigation</div>
+                <div className="rd-info-grid" style={{ marginBottom: 12 }}>
+                  <div className="rd-info-item">
+                    <div className="rd-info-label">📍 Pickup</div>
+                    <div className="rd-info-value">{selectedOrder.pickupLocation}</div>
+                  </div>
+                  <div className="rd-info-item">
+                    <div className="rd-info-label">🎯 Drop-off</div>
+                    <div className="rd-info-value">{selectedOrder.dropoffLocation}</div>
+                  </div>
                 </div>
-                <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(selectedOrder.pickupLocation)}&destination=${encodeURIComponent(selectedOrder.dropoffLocation)}`} target="_blank" rel="noreferrer" className="rd-maps-btn">
-                  🗺️ Navigate: Pickup → Drop-off
+
+                <RiderMap
+                  pickup={selectedOrder.pickupLocation}
+                  dropoff={selectedOrder.dropoffLocation}
+                  pickupCoords={selectedOrder.pickupCoords}
+                  dropoffCoords={selectedOrder.dropoffCoords}
+                />
+
+
+                <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(selectedOrder.pickupLocation + ' Ghana')}&destination=${encodeURIComponent(selectedOrder.dropoffLocation + ' Ghana')}`}
+                  target="_blank" rel="noreferrer"
+                  className="rd-maps-btn"
+                  style={{ marginTop: 10 }}
+                >
+                  🗺️ Open Google Maps Navigation
                 </a>
               </div>
 
-              {/* Contacts */}
+              {/* CONTACTS */}
               <div className="rd-section">
                 <div className="rd-section-title">Contacts</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -362,7 +345,7 @@ export default function RiderDashboard() {
                 </div>
               </div>
 
-              {/* Package */}
+              {/* PACKAGE */}
               <div className="rd-section">
                 <div className="rd-section-title">Package Info</div>
                 <div className="rd-info-item" style={{ marginBottom: 8 }}>
@@ -386,7 +369,7 @@ export default function RiderDashboard() {
                   </div>
                 </div>
                 {selectedOrder.deliveryType === 'scheduled' && selectedOrder.scheduledDate && (
-                  <div className="rd-info-item" style={{ gridColumn: '1/-1', marginTop: 8 }}>
+                  <div className="rd-info-item" style={{ marginTop: 8 }}>
                     <div className="rd-info-label">📅 Scheduled For</div>
                     <div className="rd-info-value" style={{ color: '#f97316' }}>{selectedOrder.scheduledDate} at {selectedOrder.scheduledTime}</div>
                   </div>
@@ -396,7 +379,7 @@ export default function RiderDashboard() {
                 )}
               </div>
 
-              {/* Status Actions */}
+              {/* STATUS ACTIONS */}
               {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && NEXT_ACTION[selectedOrder.status] && (
                 <div className="rd-action-section">
                   <div className="rd-action-title">Update Delivery Status</div>
@@ -410,7 +393,7 @@ export default function RiderDashboard() {
                 </div>
               )}
 
-              {/* Proof of Delivery */}
+              {/* PROOF OF DELIVERY */}
               {selectedOrder.status === 'in-transit' && (
                 <div className="rd-proof-section">
                   <div className="rd-proof-title">📸 Confirm Delivery</div>
@@ -431,7 +414,7 @@ export default function RiderDashboard() {
                 </div>
               )}
 
-              {/* Delivered State */}
+              {/* DELIVERED STATE */}
               {selectedOrder.status === 'delivered' && (
                 <div className="rd-delivered-box">
                   <div className="rd-delivered-icon">🎉</div>
