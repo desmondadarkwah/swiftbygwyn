@@ -2,13 +2,13 @@ import Order from '../models/Order.js'
 import Counter from '../models/Counter.js'
 
 // Generate unique Order ID
-const generateOrderID = async () => {
-  const counter = await Counter.findOneAndUpdate(
-    { name: 'orderID' },
-    { $inc: { value: 1 } },
-    { new: true, upsert: true }
-  )
-  return `SWG${String(counter.value).padStart(3, '0')}`
+const generateOrderID = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let id = 'SWG-'
+  for (let i = 0; i < 6; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return id
 }
 
 // POST /api/orders — public (customer books)
@@ -24,7 +24,7 @@ export const createOrder = async (req, res) => {
       deliveryFee, paymentMethod,
     } = req.body
 
-    const orderID = await generateOrderID()
+    const orderID = generateOrderID()
     const packageImage = req.file ? req.file.path : ''
 
     const order = await Order.create({
