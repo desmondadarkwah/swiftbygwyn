@@ -13,6 +13,8 @@ axiosInstance.interceptors.request.use((config) => {
   const isRiderRoute =
     url.includes('/riders/me') ||
     url.includes('/orders/rider') ||
+    url.includes('/orders/available') ||
+    url.includes('/self-assign') ||
     url.includes('/proof')
 
   if (isRiderRoute && riderToken) {
@@ -150,3 +152,12 @@ export const changeAdminPassword = async (payload) => {
   return data
 }
 
+export const getAvailableOrders = async () => {
+  const { data } = await axiosInstance.get('/api/orders/available')
+  return data.data || []
+}
+
+export const selfAssignOrder = async (orderId) => {
+  const { data } = await axiosInstance.put(`/api/orders/${orderId}/self-assign`)
+  return data.data
+}

@@ -155,3 +155,36 @@ export const getStats = async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 }
+
+// GET /api/orders/available — rider sees all unassigned orders
+export const getAvailableOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({
+      status: 'received',
+      assignedRider: null,
+    }).sort({ createdAt: -1 })
+    res.json({ success: true, data: orders })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+// PUT /api/orders/:id/self-assign — rider accepts available order
+export const selfAssignOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+    if (!order) return res.status(404).json({ error: 'Order not found.' })
+    if (order.assignedRider) return res.status(400).json({ error: 'This order has already been taken by another rider.' })
+    if (order.status !== 'received') return res.status(400).json({ error: 'This order is no longer available.' })
+    
+    const updated = await Order.findByIdAndUpdate(
+      req.params.id,
+      { assignedRider: req.rider.id, status: 'assigned' },
+      { new: true }
+    ).populate('assignedRider', 'name phone')
+    
+    res.json({ success: true, data: updated })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}

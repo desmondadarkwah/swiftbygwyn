@@ -5,7 +5,8 @@ import { setupAdmin, loginAdmin, changePassword } from '../controllers/authContr
 import { createRider, loginRider, getAllRiders, getRiderMe, updateRiderStatus, deleteRider } from '../controllers/riderController.js'
 import {
   createOrder, getAllOrders, trackOrder, getRiderOrders,
-  assignRider, updateOrderStatus, uploadProof, getStats
+  assignRider, updateOrderStatus, uploadProof, getStats,
+  getAvailableOrders, selfAssignOrder,
 } from '../controllers/orderController.js'
 import { getSettings, updateSettings } from '../controllers/settingsController.js'
 
@@ -32,6 +33,9 @@ router.post('/riders', protect, createRider)
 router.get('/riders', protect, getAllRiders)
 router.put('/riders/:id/status', protect, updateRiderStatus)
 router.delete('/riders/:id', protect, deleteRider)
+
+router.get('/orders/available', protectRider, getAvailableOrders)
+router.put('/orders/:id/self-assign', protectRider, selfAssignOrder)
 
 // ─── ORDERS ───────────────────────────────────────────
 router.post('/orders', upload.single('packageImage'), createOrder)
