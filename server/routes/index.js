@@ -1,5 +1,5 @@
 import express from 'express'
-import { protect, protectRider } from '../middleware/authMiddleware.js'
+import { protect, protectRider, protectCustomer } from '../middleware/authMiddleware.js'
 import { upload } from '../middleware/uploadMiddleware.js'
 import { setupAdmin, loginAdmin, changePassword } from '../controllers/authController.js'
 import { createRider, loginRider, getAllRiders, getRiderMe, updateRiderStatus, deleteRider } from '../controllers/riderController.js'
@@ -9,6 +9,8 @@ import {
   getAvailableOrders, selfAssignOrder,
 } from '../controllers/orderController.js'
 import { getSettings, updateSettings } from '../controllers/settingsController.js'
+
+import { registerCustomer, loginCustomer, getCustomerMe, updateCustomerProfile, changeCustomerPassword, getCustomerOrders, getAllCustomers, deleteCustomer } from '../controllers/customerController.js'
 
 const router = express.Router()
 
@@ -46,5 +48,15 @@ router.get('/orders/rider', protectRider, getRiderOrders)
 router.put('/orders/:id/assign', protect, assignRider)
 router.put('/orders/:id/status', protect, updateOrderStatus)
 router.put('/orders/:id/proof', protectRider, upload.single('proofPhoto'), uploadProof)
+
+// ─── CUSTOMER AUTH ────────────────────────────────────
+router.post('/customers/register', registerCustomer)
+router.post('/customers/login', loginCustomer)
+router.get('/customers/me', protectCustomer, getCustomerMe)
+router.put('/customers/me', protectCustomer, updateCustomerProfile)
+router.put('/customers/me/password', protectCustomer, changeCustomerPassword)
+router.get('/customers/orders', protectCustomer, getCustomerOrders)
+router.get('/customers/all', protect, getAllCustomers)
+router.delete('/customers/:id', protect, deleteCustomer)
 
 export default router

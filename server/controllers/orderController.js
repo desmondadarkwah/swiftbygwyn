@@ -27,8 +27,10 @@ export const createOrder = async (req, res) => {
     const orderID = generateOrderID()
     const packageImage = req.file ? req.file.path : ''
 
+    const customer = req.body.customerId || null
     const order = await Order.create({
       orderID,
+      customer,
       customerName, customerPhone,
       recipientName, recipientPhone,
       pickupLocation, dropoffLocation,
@@ -136,11 +138,11 @@ export const uploadProof = async (req, res) => {
 // GET /api/orders/stats — admin gets stats
 export const getStats = async (req, res) => {
   try {
-    const total      = await Order.countDocuments()
-    const pending    = await Order.countDocuments({ status: { $in: ['received', 'assigned', 'picked-up', 'in-transit'] } })
-    const completed  = await Order.countDocuments({ status: 'delivered' })
-    const cancelled  = await Order.countDocuments({ status: 'cancelled' })
-    const revenue    = await Order.aggregate([
+    const total = await Order.countDocuments()
+    const pending = await Order.countDocuments({ status: { $in: ['received', 'assigned', 'picked-up', 'in-transit'] } })
+    const completed = await Order.countDocuments({ status: 'delivered' })
+    const cancelled = await Order.countDocuments({ status: 'cancelled' })
+    const revenue = await Order.aggregate([
       { $match: { status: 'delivered' } },
       { $group: { _id: null, total: { $sum: '$deliveryFee' } } }
     ])
@@ -176,13 +178,13 @@ export const selfAssignOrder = async (req, res) => {
     if (!order) return res.status(404).json({ error: 'Order not found.' })
     if (order.assignedRider) return res.status(400).json({ error: 'This order has already been taken by another rider.' })
     if (order.status !== 'received') return res.status(400).json({ error: 'This order is no longer available.' })
-    
+
     const updated = await Order.findByIdAndUpdate(
       req.params.id,
       { assignedRider: req.rider.id, status: 'assigned' },
       { new: true }
     ).populate('assignedRider', 'name phone')
-    
+
     res.json({ success: true, data: updated })
   } catch (err) {
     res.status(500).json({ error: err.message })

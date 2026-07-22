@@ -61,6 +61,9 @@ status: {
   // Rider
   assignedRider: { type: mongoose.Schema.Types.ObjectId, ref: 'Rider', default: null },
 
+  //rider
+  customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', default: null },
+
   // Proof of delivery
   proofPhoto: { type: String, default: '' },
   proofRecipientName: { type: String, default: '' },

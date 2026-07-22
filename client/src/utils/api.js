@@ -8,6 +8,7 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use((config) => {
   const adminToken = localStorage.getItem('swg_admin_token')
   const riderToken = localStorage.getItem('swg_rider_token')
+  const customerToken = localStorage.getItem('swg_customer_token')
   const url = config.url || ''
 
   const isRiderRoute =
@@ -17,8 +18,15 @@ axiosInstance.interceptors.request.use((config) => {
     url.includes('/self-assign') ||
     url.includes('/proof')
 
+  const isCustomerRoute =
+    url.includes('/customers/me') ||
+    url.includes('/customers/orders') ||
+    url.includes('/customers/me/password')
+
   if (isRiderRoute && riderToken) {
     config.headers.Authorization = `Bearer ${riderToken}`
+  } else if (isCustomerRoute && customerToken) {
+    config.headers.Authorization = `Bearer ${customerToken}`
   } else if (adminToken) {
     config.headers.Authorization = `Bearer ${adminToken}`
   }
@@ -34,16 +42,20 @@ axiosInstance.interceptors.response.use(
 
     const isAuthEndpoint =
       url.includes('/auth/login') ||
-      url.includes('/riders/login')
+      url.includes('/riders/login') ||
+      url.includes('/customers/login') ||
+      url.includes('/customers/register')
 
     if (status === 401 && !isAuthEndpoint) {
-      const isRiderRoute =
-        config.url?.includes('/riders/me') ||
-        config.url?.includes('/orders/rider') ||
-        config.url?.includes('/orders/') && config.url?.includes('/proof')
+      const isRiderRoute = url.includes('/riders/me') || url.includes('/orders/rider') || url.includes('/orders/available') || url.includes('/self-assign') || url.includes('/proof')
+      const isCustomerRoute = url.includes('/customers/me') || url.includes('/customers/orders')
+
       if (isRiderRoute) {
         localStorage.removeItem('swg_rider_token')
         window.location.href = '/rider/login'
+      } else if (isCustomerRoute) {
+        localStorage.removeItem('swg_customer_token')
+        window.location.href = '/login'
       } else {
         localStorage.removeItem('swg_admin_token')
         window.location.href = '/admin/login'
@@ -160,4 +172,45 @@ export const getAvailableOrders = async () => {
 export const selfAssignOrder = async (orderId) => {
   const { data } = await axiosInstance.put(`/api/orders/${orderId}/self-assign`)
   return data.data
+}
+
+// ─── CUSTOMER AUTH ────────────────────────────────────
+export const registerCustomer = async (payload) => {
+  const { data } = await axiosInstance.post('/api/customers/register', payload)
+  return data
+}
+
+export const loginCustomer = async (payload) => {
+  const { data } = await axiosInstance.post('/api/customers/login', payload)
+  return data
+}
+
+export const fetchCustomerMe = async () => {
+  const { data } = await axiosInstance.get('/api/customers/me')
+  return data.customer
+}
+
+export const updateCustomerProfile = async (payload) => {
+  const { data } = await axiosInstance.put('/api/customers/me', payload)
+  return data.customer
+}
+
+export const changeCustomerPassword = async (payload) => {
+  const { data } = await axiosInstance.put('/api/customers/me/password', payload)
+  return data
+}
+
+export const fetchCustomerOrders = async () => {
+  const { data } = await axiosInstance.get('/api/customers/orders')
+  return data.data || []
+}
+
+export const fetchAllCustomers = async () => {
+  const { data } = await axiosInstance.get('/api/customers/all')
+  return data.data || []
+}
+
+export const deleteCustomer = async (id) => {
+  const { data } = await axiosInstance.delete(`/api/customers/${id}`)
+  return data
 }
