@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createOrder, fetchSettings } from '../utils/api'
+import { useCustomerAuth } from '../context/CustomerAuthContext'
 import LocationPicker from '../components/LocationPicker'
 
 const DELIVERY_TYPES = [
@@ -14,6 +15,7 @@ const RATE_PER_KM = 2
 
 export default function BookDelivery() {
   const navigate = useNavigate()
+  const { customer } = useCustomerAuth()
   const [step, setStep]           = useState(1)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
@@ -37,6 +39,16 @@ export default function BookDelivery() {
   useEffect(() => {
     fetchSettings().then(setSettings).catch(console.error)
   }, [])
+
+  useEffect(() => {
+    if (customer) {
+      setForm(prev => ({
+        ...prev,
+        customerName: customer.name || prev.customerName,
+        customerPhone: customer.phone || prev.customerPhone,
+      }))
+    }
+  }, [customer])
 
   const BASE_FEES = {
     standard:   settings?.standardFee  || 30,
@@ -84,6 +96,7 @@ export default function BookDelivery() {
       Object.entries(form).forEach(([k, v]) => fd.append(k, v))
       fd.append('deliveryFee', deliveryFee)
       fd.append('distance', distance)
+      if (customer) fd.append('customerId', customer.id)
       if (pickupCoords) {
         fd.append('pickupCoords[lat]', pickupCoords.lat)
         fd.append('pickupCoords[lng]', pickupCoords.lng)
@@ -114,7 +127,7 @@ export default function BookDelivery() {
           .suc-sub { font-size: 14px; color: rgba(240,244,255,0.45); line-height: 1.7; margin-bottom: 28px; }
           .suc-id-box { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25); border-radius: 16px; padding: 22px; margin-bottom: 16px; }
           .suc-id-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(240,244,255,0.3); margin-bottom: 10px; }
-          .suc-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 38px; color: #f97316; letter-spacing: 0.06em; }
+          .suc-id { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 32px; color: #f97316; letter-spacing: 0.06em; }
           .suc-id-tip { font-size: 12px; color: rgba(240,244,255,0.3); margin-top: 8px; }
           .suc-details { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
           .suc-detail-row { display: flex; justify-content: space-between; font-size: 13px; gap: 12px; }
@@ -149,6 +162,7 @@ export default function BookDelivery() {
             </div>
             <div className="suc-actions">
               <a href={`/track/${success.orderID}`} className="suc-btn">🔍 Track My Order</a>
+              {customer && <a href="/account" className="suc-btn-ghost">📋 View in My Account</a>}
               <a href="/book" className="suc-btn-ghost">+ Book Another Delivery</a>
               <a href="/" className="suc-btn-ghost">← Back to Home</a>
             </div>
@@ -167,8 +181,10 @@ export default function BookDelivery() {
         .bk-nav { background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); }
         .bk-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 8px; }
         .bk-logo-icon { width: 32px; height: 32px; background: #f97316; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .bk-nav-right { display: flex; align-items: center; gap: 10px; }
         .bk-back { font-size: 13px; color: rgba(240,244,255,0.4); text-decoration: none; }
         .bk-back:hover { color: #f97316; }
+        .bk-user-badge { display: flex; align-items: center; gap: 6px; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); border-radius: 100px; padding: 4px 12px; font-size: 12px; color: #f97316; font-weight: 500; }
         .bk-body { max-width: 580px; margin: 0 auto; padding: 32px 20px 80px; }
         .bk-steps { display: flex; align-items: center; margin-bottom: 32px; }
         .bk-step { display: flex; align-items: center; gap: 8px; }
@@ -191,6 +207,7 @@ export default function BookDelivery() {
         .bk-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 12px 14px; font-size: 14px; color: #fff; outline: none; transition: border-color 0.2s; font-family: 'Inter', sans-serif; }
         .bk-input:focus { border-color: #f97316; background: rgba(255,255,255,0.07); }
         .bk-input::placeholder { color: rgba(240,244,255,0.18); }
+        .bk-input:disabled { opacity: 0.6; cursor: not-allowed; }
         .bk-textarea { resize: vertical; min-height: 85px; }
         .bk-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .bk-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -234,6 +251,9 @@ export default function BookDelivery() {
         .bk-btn-ghost:hover { border-color: rgba(255,255,255,0.2); }
         .bk-trust { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
         .bk-trust-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(240,244,255,0.3); }
+        .bk-login-banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(249,115,22,0.06); border: 1px solid rgba(249,115,22,0.2); border-radius: 12px; margin-bottom: 20px; }
+        .bk-login-banner-text { font-size: 13px; color: rgba(240,244,255,0.5); flex: 1; }
+        .bk-login-banner-link { font-size: 13px; font-weight: 600; color: #f97316; text-decoration: none; white-space: nowrap; }
         @media (max-width: 520px) {
           .bk-body { padding: 20px 16px 80px; }
           .bk-card { padding: 20px; }
@@ -249,10 +269,24 @@ export default function BookDelivery() {
             <div className="bk-logo-icon">🚀</div>
             SwiftByGwyn
           </a>
-          <a href="/" className="bk-back">← Back</a>
+          <div className="bk-nav-right">
+            {customer && (
+              <div className="bk-user-badge">👤 {customer.name?.split(' ')[0]}</div>
+            )}
+            <a href="/" className="bk-back">← Back</a>
+          </div>
         </nav>
 
         <div className="bk-body">
+          {/* Login banner for guests */}
+          {!customer && (
+            <div className="bk-login-banner">
+              <span style={{ fontSize:20 }}>💡</span>
+              <div className="bk-login-banner-text">Sign in to auto-fill your details and track all your orders in one place.</div>
+              <a href="/login" className="bk-login-banner-link">Sign In →</a>
+            </div>
+          )}
+
           {/* Steps */}
           <div className="bk-steps">
             {['Contact Details', 'Package Info', 'Confirm & Pay'].map((label, i) => (
@@ -300,14 +334,8 @@ export default function BookDelivery() {
             <div className="bk-card">
               <div className="bk-section-title">📍 Locations</div>
               <LocationPicker
-                onPickupChange={(name, coords) => {
-                  set('pickupLocation', name)
-                  setPickupCoords(coords)
-                }}
-                onDropoffChange={(name, coords) => {
-                  set('dropoffLocation', name)
-                  setDropoffCoords(coords)
-                }}
+                onPickupChange={(name, coords) => { set('pickupLocation', name); setPickupCoords(coords) }}
+                onDropoffChange={(name, coords) => { set('dropoffLocation', name); setDropoffCoords(coords) }}
                 onDistanceChange={(km) => setDistance(km)}
               />
               <div style={{ height:16 }} />
